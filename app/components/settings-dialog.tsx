@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LLMProvider, SettingsPayload } from "../lib/settings-types";
+import type { LLMProvider, SettingsPayload, SpeechEngine } from "../lib/settings-types";
 import { UserAdmin } from "./user-admin";
 
 type RequestState = "idle" | "loading" | "error" | "success";
@@ -9,6 +9,7 @@ type RequestState = "idle" | "loading" | "error" | "success";
 type UserPrefsForm = {
   model: string;
   systemPrompt: string;
+  speechEngine: "" | SpeechEngine;
 };
 
 type InstanceForm = {
@@ -17,10 +18,28 @@ type InstanceForm = {
   baseUrl: string;
   apiKey: string;
   systemPrompt: string;
+  speechEngine: "" | SpeechEngine;
+  speechBaseUrl: string;
+  speechApiKey: string;
+  speechSttModel: string;
+  speechTtsModel: string;
+  speechTtsVoice: string;
 };
 
-const emptyUserPrefs: UserPrefsForm = { model: "", systemPrompt: "" };
-const emptyInstance: InstanceForm = { provider: "", model: "", baseUrl: "", apiKey: "", systemPrompt: "" };
+const emptyUserPrefs: UserPrefsForm = { model: "", systemPrompt: "", speechEngine: "" };
+const emptyInstance: InstanceForm = {
+  provider: "",
+  model: "",
+  baseUrl: "",
+  apiKey: "",
+  systemPrompt: "",
+  speechEngine: "",
+  speechBaseUrl: "",
+  speechApiKey: "",
+  speechSttModel: "",
+  speechTtsModel: "",
+  speechTtsVoice: "",
+};
 
 export function SettingsDialog({
   open,
@@ -35,6 +54,7 @@ export function SettingsDialog({
   const [userPrefs, setUserPrefs] = useState<UserPrefsForm>(emptyUserPrefs);
   const [instance, setInstance] = useState<InstanceForm>(emptyInstance);
   const [clearApiKey, setClearApiKey] = useState(false);
+  const [clearSpeechApiKey, setClearSpeechApiKey] = useState(false);
   const [loadStatus, setLoadStatus] = useState<RequestState>("idle");
   const [saveStatus, setSaveStatus] = useState<RequestState>("idle");
   const [error, setError] = useState("");
@@ -46,6 +66,7 @@ export function SettingsDialog({
 
     setSaveStatus("idle");
     setClearApiKey(false);
+    setClearSpeechApiKey(false);
     setError("");
     void loadSettings();
   }, [open]);
@@ -68,6 +89,7 @@ export function SettingsDialog({
     setUserPrefs({
       model: fetched.settings.user.model ?? "",
       systemPrompt: fetched.settings.user.systemPrompt ?? "",
+      speechEngine: fetched.settings.speech.user.engine ?? "",
     });
     setInstance({
       provider: fetched.settings.instance?.provider ?? "",
@@ -75,6 +97,12 @@ export function SettingsDialog({
       baseUrl: fetched.settings.instance?.baseUrl ?? "",
       apiKey: "",
       systemPrompt: fetched.settings.instance?.systemPrompt ?? "",
+      speechEngine: fetched.settings.speech.instance?.engine ?? "",
+      speechBaseUrl: fetched.settings.speech.instance?.baseUrl ?? "",
+      speechApiKey: "",
+      speechSttModel: fetched.settings.speech.instance?.sttModel ?? "",
+      speechTtsModel: fetched.settings.speech.instance?.ttsModel ?? "",
+      speechTtsVoice: fetched.settings.speech.instance?.ttsVoice ?? "",
     });
   }
 
@@ -90,6 +118,7 @@ export function SettingsDialog({
           body: JSON.stringify({
             model: userPrefs.model.trim() || null,
             systemPrompt: userPrefs.systemPrompt.trim() || null,
+            speechEngine: userPrefs.speechEngine || null,
           }),
         }),
       );
@@ -99,6 +128,11 @@ export function SettingsDialog({
           ? { apiKey: null }
           : instance.apiKey.trim()
             ? { apiKey: instance.apiKey.trim() }
+            : {};
+        const speechApiKeyPatch = clearSpeechApiKey
+          ? { speechApiKey: null }
+          : instance.speechApiKey.trim()
+            ? { speechApiKey: instance.speechApiKey.trim() }
             : {};
 
         updated = await fetchPayload(
@@ -110,7 +144,13 @@ export function SettingsDialog({
               model: instance.model.trim() || null,
               baseUrl: instance.baseUrl.trim() || null,
               systemPrompt: instance.systemPrompt.trim() || null,
+              speechEngine: instance.speechEngine || null,
+              speechBaseUrl: instance.speechBaseUrl.trim() || null,
+              speechSttModel: instance.speechSttModel.trim() || null,
+              speechTtsModel: instance.speechTtsModel.trim() || null,
+              speechTtsVoice: instance.speechTtsVoice.trim() || null,
               ...apiKeyPatch,
+              ...speechApiKeyPatch,
             }),
           }),
         );
@@ -118,6 +158,7 @@ export function SettingsDialog({
 
       applyPayload(updated);
       setClearApiKey(false);
+      setClearSpeechApiKey(false);
       setSaveStatus("success");
     } catch (saveError) {
       setSaveStatus("error");
@@ -134,7 +175,7 @@ export function SettingsDialog({
         await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: null, systemPrompt: null }),
+          body: JSON.stringify({ model: null, systemPrompt: null, speechEngine: null }),
         }),
       );
 
@@ -197,6 +238,31 @@ export function SettingsDialog({
                   <small className="field-hint">
                     Leave blank to use the instance default. Use {"{{source}}"} and {"{{target}}"} as language
                     placeholders. JSON output-format instructions are appended automatically.
+                  </small>
+                </label>
+              </div>
+            </section>
+
+            <section className="settings-section">
+              <h3>Voice</h3>
+              <div className="settings-body">
+                <label className="settings-field">
+                  <span>Speech engine</span>
+                  <select
+                    value={userPrefs.speechEngine}
+                    onChange={(event) =>
+                      setUserPrefs({ ...userPrefs, speechEngine: event.target.value as UserPrefsForm["speechEngine"] })
+                    }
+                  >
+                    <option value="">Default ({settings.speech.effective.engine})</option>
+                    <option value="browser">Browser (built-in, free)</option>
+                    <option value="provider">Provider (server-side)</option>
+                  </select>
+                  <small className="field-hint">
+                    Browser uses your device&apos;s speech recognition and voices.{" "}
+                    {settings.speech.effective.providerConfigured
+                      ? "A speech provider is configured and available."
+                      : "Provider mode needs an admin-configured speech provider before it works."}
                   </small>
                 </label>
               </div>
@@ -287,6 +353,104 @@ export function SettingsDialog({
                         onChange={(event) => setInstance({ ...instance, systemPrompt: event.target.value })}
                       />
                       <small className="field-hint">Instance-wide default; users can override it for themselves.</small>
+                    </label>
+                  </div>
+                </section>
+
+                <section className="settings-section">
+                  <h3>Voice provider (admin)</h3>
+                  <div className="settings-body">
+                    <label className="settings-field">
+                      <span>Default engine</span>
+                      <select
+                        value={instance.speechEngine}
+                        onChange={(event) =>
+                          setInstance({ ...instance, speechEngine: event.target.value as InstanceForm["speechEngine"] })
+                        }
+                      >
+                        <option value="">Default (browser)</option>
+                        <option value="browser">Browser (built-in, free)</option>
+                        <option value="provider">Provider (server-side)</option>
+                      </select>
+                      <small className="field-hint">Users can override the engine for themselves.</small>
+                    </label>
+
+                    <label className="settings-field">
+                      <span>Speech base URL</span>
+                      <input
+                        type="text"
+                        value={instance.speechBaseUrl}
+                        placeholder="https://api.openai.com/v1"
+                        onChange={(event) => setInstance({ ...instance, speechBaseUrl: event.target.value })}
+                      />
+                      <small className="field-hint">
+                        OpenAI-compatible audio API root. Leave blank to reuse the LLM provider&apos;s base URL when it
+                        is OpenAI-compatible.
+                      </small>
+                    </label>
+
+                    <label className="settings-field">
+                      <span>Speech API key</span>
+                      <input
+                        type="password"
+                        value={instance.speechApiKey}
+                        placeholder={
+                          settings.speech.effective.providerConfigured
+                            ? "Leave blank to keep the current key"
+                            : "Enter an API key"
+                        }
+                        autoComplete="off"
+                        disabled={clearSpeechApiKey}
+                        onChange={(event) => setInstance({ ...instance, speechApiKey: event.target.value })}
+                      />
+                      <small className="field-hint">
+                        {settings.speech.instance?.hasStoredApiKey
+                          ? "A speech key is stored in instance settings."
+                          : settings.speech.effective.providerConfigured
+                            ? "Reusing the LLM provider's key (or SPEECH_API_KEY)."
+                            : "No speech key available. Provider speech stays disabled until one is set."}
+                      </small>
+                      {settings.speech.instance?.hasStoredApiKey ? (
+                        <label className="toggle">
+                          <input
+                            type="checkbox"
+                            checked={clearSpeechApiKey}
+                            onChange={(event) => setClearSpeechApiKey(event.target.checked)}
+                          />
+                          <span>Remove stored key on save</span>
+                        </label>
+                      ) : null}
+                    </label>
+
+                    <label className="settings-field">
+                      <span>Transcription model</span>
+                      <input
+                        type="text"
+                        value={instance.speechSttModel}
+                        placeholder={settings.speech.effective.sttModel}
+                        onChange={(event) => setInstance({ ...instance, speechSttModel: event.target.value })}
+                      />
+                    </label>
+
+                    <label className="settings-field">
+                      <span>Speech model</span>
+                      <input
+                        type="text"
+                        value={instance.speechTtsModel}
+                        placeholder={settings.speech.effective.ttsModel}
+                        onChange={(event) => setInstance({ ...instance, speechTtsModel: event.target.value })}
+                      />
+                    </label>
+
+                    <label className="settings-field">
+                      <span>Speech voice</span>
+                      <input
+                        type="text"
+                        value={instance.speechTtsVoice}
+                        placeholder={settings.speech.effective.ttsVoice}
+                        onChange={(event) => setInstance({ ...instance, speechTtsVoice: event.target.value })}
+                      />
+                      <small className="field-hint">Provider voice id, e.g. alloy, nova, shimmer.</small>
                     </label>
                   </div>
                 </section>

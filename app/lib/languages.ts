@@ -19,7 +19,9 @@ export const languages = [
   { code: "es", name: "Spanish", needsRomanization: false },
   { code: "uk", name: "Ukrainian", needsRomanization: true },
   { code: "vi", name: "Vietnamese", needsRomanization: false },
-] satisfies Language[];
+] as const satisfies readonly Language[];
+
+export type LanguageCode = (typeof languages)[number]["code"];
 
 export const autoDetectLanguage = {
   code: "auto",

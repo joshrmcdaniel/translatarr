@@ -10,11 +10,16 @@ import { getDb } from "./db";
 import type { User } from "./user-store";
 import {
   llmProviders,
+  speechEngines,
   type LLMProvider,
   type ResolvedLLMSettings,
+  type ResolvedSpeechSettings,
   type SettingsOverrides,
   type SettingsView,
+  type SpeechEngine,
+  type SpeechSettingsOverrides,
   type UserLLMPrefs,
+  type UserSpeechPrefs,
 } from "./settings-types";
 
 type SettingRow = {
@@ -30,8 +35,19 @@ const providerDefaults: Record<LLMProvider, { model: string; baseUrl: string }> 
   custom: { model: "gpt-5.4-mini", baseUrl: "https://api.openai.com/v1" },
 };
 
+const speechDefaults = {
+  baseUrl: "https://api.openai.com/v1",
+  sttModel: "whisper-1",
+  ttsModel: "gpt-4o-mini-tts",
+  ttsVoice: "alloy",
+};
+
 function asProvider(value: string | undefined): LLMProvider | null {
   return llmProviders.includes(value as LLMProvider) ? (value as LLMProvider) : null;
+}
+
+function asSpeechEngine(value: string | undefined): SpeechEngine | null {
+  return speechEngines.includes(value as SpeechEngine) ? (value as SpeechEngine) : null;
 }
 
 function applyKeyValuePatch(patch: Record<string, string | null | undefined>, table: "app_settings" | "user_settings", userId?: string) {
@@ -86,6 +102,26 @@ export function updateSettingsOverrides(patch: Partial<SettingsOverrides>): Sett
   return getSettingsOverrides();
 }
 
+export function getSpeechOverrides(): SpeechSettingsOverrides {
+  const rows = getDb().prepare("SELECT key, value FROM app_settings").all() as SettingRow[];
+  const byKey = new Map(rows.map((row) => [row.key, row.value]));
+
+  return {
+    engine: asSpeechEngine(byKey.get("speech.engine")),
+    apiKey: byKey.get("speech.apiKey") ?? null,
+    baseUrl: byKey.get("speech.baseUrl") ?? null,
+    sttModel: byKey.get("speech.sttModel") ?? null,
+    ttsModel: byKey.get("speech.ttsModel") ?? null,
+    ttsVoice: byKey.get("speech.ttsVoice") ?? null,
+  };
+}
+
+export function updateSpeechOverrides(patch: Partial<SpeechSettingsOverrides>): SpeechSettingsOverrides {
+  const prefixed = Object.fromEntries(Object.entries(patch).map(([key, value]) => [`speech.${key}`, value]));
+  applyKeyValuePatch(prefixed, "app_settings");
+  return getSpeechOverrides();
+}
+
 export function getUserPrefs(userId: string): UserLLMPrefs {
   const rows = getDb().prepare("SELECT key, value FROM user_settings WHERE user_id = ?").all(userId) as SettingRow[];
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
@@ -99,6 +135,21 @@ export function getUserPrefs(userId: string): UserLLMPrefs {
 export function updateUserPrefs(userId: string, patch: Partial<UserLLMPrefs>): UserLLMPrefs {
   applyKeyValuePatch(patch, "user_settings", userId);
   return getUserPrefs(userId);
+}
+
+export function getUserSpeechPrefs(userId: string): UserSpeechPrefs {
+  const rows = getDb().prepare("SELECT key, value FROM user_settings WHERE user_id = ?").all(userId) as SettingRow[];
+  const byKey = new Map(rows.map((row) => [row.key, row.value]));
+
+  return {
+    engine: asSpeechEngine(byKey.get("speech.engine")),
+  };
+}
+
+export function updateUserSpeechPrefs(userId: string, patch: Partial<UserSpeechPrefs>): UserSpeechPrefs {
+  const prefixed = Object.fromEntries(Object.entries(patch).map(([key, value]) => [`speech.${key}`, value]));
+  applyKeyValuePatch(prefixed, "user_settings", userId);
+  return getUserSpeechPrefs(userId);
 }
 
 export function resolveLLMSettings(userId?: string): ResolvedLLMSettings {
@@ -117,9 +168,30 @@ export function resolveLLMSettings(userId?: string): ResolvedLLMSettings {
   };
 }
 
+export function resolveSpeechSettings(userId?: string): ResolvedSpeechSettings {
+  const instance = getSpeechOverrides();
+  const userPrefs = userId ? getUserSpeechPrefs(userId) : { engine: null };
+  const llm = resolveLLMSettings(userId);
+  const llmIsOpenAICompatible = llm.provider === "openai-compatible";
+
+  return {
+    engine: userPrefs.engine ?? instance.engine ?? asSpeechEngine(process.env.SPEECH_ENGINE) ?? "browser",
+    apiKey: instance.apiKey ?? process.env.SPEECH_API_KEY ?? (llmIsOpenAICompatible ? llm.apiKey : null),
+    baseUrl:
+      instance.baseUrl ??
+      process.env.SPEECH_BASE_URL ??
+      (llmIsOpenAICompatible ? llm.baseUrl : speechDefaults.baseUrl),
+    sttModel: instance.sttModel ?? process.env.SPEECH_STT_MODEL ?? speechDefaults.sttModel,
+    ttsModel: instance.ttsModel ?? process.env.SPEECH_TTS_MODEL ?? speechDefaults.ttsModel,
+    ttsVoice: instance.ttsVoice ?? process.env.SPEECH_TTS_VOICE ?? speechDefaults.ttsVoice,
+  };
+}
+
 export function getSettingsView(user: User): SettingsView {
   const instance = getSettingsOverrides();
   const effective = resolveLLMSettings(user.id);
+  const speechInstance = getSpeechOverrides();
+  const speechEffective = resolveSpeechSettings(user.id);
 
   return {
     user: getUserPrefs(user.id),
@@ -139,5 +211,26 @@ export function getSettingsView(user: User): SettingsView {
             hasStoredApiKey: instance.apiKey !== null,
           }
         : null,
+    speech: {
+      user: getUserSpeechPrefs(user.id),
+      effective: {
+        engine: speechEffective.engine,
+        sttModel: speechEffective.sttModel,
+        ttsModel: speechEffective.ttsModel,
+        ttsVoice: speechEffective.ttsVoice,
+        providerConfigured: speechEffective.apiKey !== null,
+      },
+      instance:
+        user.role === "admin"
+          ? {
+              engine: speechInstance.engine,
+              baseUrl: speechInstance.baseUrl,
+              sttModel: speechInstance.sttModel,
+              ttsModel: speechInstance.ttsModel,
+              ttsVoice: speechInstance.ttsVoice,
+              hasStoredApiKey: speechInstance.apiKey !== null,
+            }
+          : null,
+    },
   };
 }

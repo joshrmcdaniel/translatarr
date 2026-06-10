@@ -1,10 +1,10 @@
 ## Translatarr v0.1.1
 
-**Mobile overhaul: a real app-shell layout on phones.**
+**Voice support — dictation, spoken translations, and a conversation mode — plus a mobile overhaul.**
 
 ### Fixed
 
-- **Whole-page scrolling on mobile.** The shell was sized with `100vh`, which on mobile browsers includes the space behind the collapsible URL bar, so the document overflowed and the entire page scrolled. The shell now uses `100dvh` (with a `vh` fallback), only the timeline scrolls, and `overscroll-behavior` stops rubber-band scrolling on the chrome.
+- **Whole-page scrolling on mobile.** The shell was sized with `100vh`, which on mobile browsers includes the space behind the collapsible URL bar, so the document overflowed and the entire page scrolled. The shell now uses `100dvh`, the body is pinned (`position: fixed` + `overflow: hidden`) on small screens so the page itself can never move — including iOS standalone-PWA rubber-banding — and inner scrollers (timeline, chat list, settings) use `overscroll-behavior: contain` so a fling can't chain out to the document.
 - **Cramped mobile layout.** The sidebar previously stacked above the conversation at up to 240 px tall, leaving almost no room for the timeline. Spacing, control heights, and the composer are also tightened on small screens so the conversation gets the majority of the viewport.
 - Settings dialog now caps its height against the dynamic viewport (`100dvh`), so it can't extend behind the URL bar.
 - **Missing romanization.** Some non-Latin-script translations (notably Korean) came back without romanization. The server now appends a hard requirement to every system prompt — custom templates included: any translation option, back-translation, or glossary entry in a non-Latin script must carry romanization in that language's standard scheme.
@@ -12,6 +12,11 @@
 
 ### Added
 
+- **Mic dictation in the composer.** A Mic button next to Send dictates into the textarea, appending live interim text as you speak. Dictated text behaves exactly like typed text — including live preview.
+- **Speak buttons on translation cards.** Every translation option can be read aloud, with the voice matched to the target language (CJK languages pick CJK voices). Toggles to Stop while playing.
+- **Conversation mode.** A Voice button in the top bar opens a Google-Translate-style conversation view: tap a language side, talk, recognition auto-stops on silence, the utterance is saved as a turn in the active chat (the pair reverses when you tap the target side), and the top translation is spoken back in the other language. Failed turns keep the transcript with a Retry button; blocked autoplay falls back to a manual Play button. Requires a concrete (non-auto) source language.
+- **Two speech engines, resolved like LLM settings.** The default `browser` engine uses the Web Speech API — free, on-device, zero config. The optional `provider` engine records with MediaRecorder and proxies through two new authenticated routes (`POST /api/speech/transcribe`, `POST /api/speech/synthesize`) to any OpenAI-compatible audio API (`/audio/transcriptions` + `/audio/speech`). Browsers without speech recognition (Firefox) fall back to the provider engine automatically when one is configured; otherwise the mic disables with an explanatory tooltip.
+- **Speech settings.** Users pick their engine in Settings → Voice; admins configure the provider (base URL, API key, transcription/speech models, voice) in Settings → Voice provider, or via `SPEECH_ENGINE`, `SPEECH_API_KEY`, `SPEECH_BASE_URL`, `SPEECH_STT_MODEL`, `SPEECH_TTS_MODEL`, and `SPEECH_TTS_VOICE` env vars. When the LLM provider is OpenAI-compatible, the speech key and base URL are reused automatically — provider speech works with zero extra config. Stored in the existing settings tables; no migration. *Privacy note: browser speech recognition may send audio to the browser vendor's recognition service; provider mode sends audio to the configured speech base URL.*
 - **Hamburger chat drawer on mobile.** Chats, the New button, and the user/Settings/Log out footer now live in an off-canvas drawer that slides in from the left over a dimmed backdrop. It opens from a hamburger button in the control bar and closes when you pick a chat, create one, or tap the backdrop. Desktop keeps the persistent sidebar.
 - `interactive-widget=resizes-content` viewport hint, so the on-screen keyboard on Android resizes the layout instead of covering the composer.
 

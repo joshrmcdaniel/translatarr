@@ -1246,6 +1246,214 @@ select:focus {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* ---------- voice ---------- */
+
+@keyframes recording-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 92 61 / 45%);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgb(255 92 61 / 0%);
+  }
+}
+
+.mic-button.recording {
+  border-color: var(--vermilion);
+  background: var(--vermilion);
+  color: var(--ink-0);
+  animation: recording-pulse 1.4s ease-in-out infinite;
+}
+
+.option-actions {
+  display: grid;
+  gap: 6px;
+  align-self: start;
+}
+
+.speak-button.speaking {
+  border-color: var(--jade-deep);
+  color: var(--jade-deep);
+}
+
+.voice-mode {
+  width: min(560px, 100%);
+  height: min(720px, calc(100vh - 48px));
+  height: min(720px, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--ink-3);
+  border-radius: 14px;
+  background: var(--ink-1);
+  box-shadow: var(--shadow-card);
+  padding: 20px;
+  animation: pop 220ms var(--ease-out) both;
+}
+
+.voice-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-header strong {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.voice-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px;
+}
+
+.voice-empty {
+  margin: auto;
+  color: var(--text-low);
+  font-family: var(--font-serif-stack);
+  font-style: italic;
+}
+
+.voice-turn {
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.voice-turn.interim {
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.voice-turn-meta {
+  font-family: var(--font-mono-stack);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-mid);
+}
+
+.voice-turn-source {
+  margin: 0;
+  color: var(--paper-mid);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.voice-turn-translation {
+  margin: 0;
+  font-family: var(--font-serif-stack);
+  font-size: 1.15rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.voice-turn-romanization {
+  color: var(--paper-mid);
+  font-size: 0.84rem;
+}
+
+.voice-status {
+  text-align: center;
+  color: var(--text-mid);
+  font-family: var(--font-mono-stack);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.voice-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgb(255 92 61 / 45%);
+  border-radius: 8px;
+  background: rgb(255 92 61 / 10%);
+  color: var(--text-hi);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.voice-unsupported {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--text-mid);
+  padding: 32px 12px;
+}
+
+.voice-unsupported p {
+  margin: 0;
+}
+
+.voice-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.voice-controls .swap-button {
+  align-self: center;
+}
+
+.voice-lang-button {
+  min-height: 76px;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  display: grid;
+  gap: 2px;
+  place-content: center;
+  padding: 10px;
+  transition: transform 120ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.voice-lang-button:hover:not(:disabled) {
+  border-color: var(--vermilion-deep);
+  transform: translateY(-1px);
+}
+
+.voice-lang-button small {
+  font-family: var(--font-mono-stack);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-mid);
+}
+
+.voice-lang-button strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.voice-lang-button.listening {
+  border-color: var(--vermilion);
+  background: linear-gradient(160deg, var(--vermilion), var(--vermilion-deep));
+  color: #160d0a;
+  animation: recording-pulse 1.4s ease-in-out infinite;
+}
+
+.voice-lang-button.listening small {
+  color: rgb(22 13 10 / 70%);
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 840px) {
@@ -1385,7 +1593,7 @@ select:focus {
 
   .composer-actions {
     min-width: 0;
-    grid-template-columns: auto 1fr 1fr;
+    grid-template-columns: auto 1fr 1fr 1fr;
     align-items: center;
   }
 }
@@ -1435,6 +1643,11 @@ select:focus {
 
   .option-featured .copy-button {
     justify-self: start;
+  }
+
+  .option-actions {
+    grid-auto-flow: column;
+    justify-content: start;
   }
 
   .keyword-row,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "../../lib/auth";
-import { getSettingsView, updateUserPrefs } from "../../lib/settings-store";
+import { getSettingsView, updateUserPrefs, updateUserSpeechPrefs } from "../../lib/settings-store";
 import type { SettingsPayload } from "../../lib/settings-types";
 import { defaultPromptTemplate } from "../../lib/translation-service";
 import type { User } from "../../lib/user-store";
@@ -9,6 +9,7 @@ import type { User } from "../../lib/user-store";
 const userPrefsSchema = z.object({
   model: z.string().trim().max(200).nullable().optional(),
   systemPrompt: z.string().trim().max(8000).nullable().optional(),
+  speechEngine: z.enum(["browser", "provider"]).nullable().optional(),
 });
 
 function buildPayload(user: User): SettingsPayload {
@@ -43,6 +44,12 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
   }
 
-  updateUserPrefs(user.id, body);
+  const { speechEngine, ...llmPrefs } = body;
+  updateUserPrefs(user.id, llmPrefs);
+
+  if (speechEngine !== undefined) {
+    updateUserSpeechPrefs(user.id, { engine: speechEngine });
+  }
+
   return NextResponse.json(buildPayload(user));
 }

@@ -15,6 +15,11 @@ export type LLMProvider = "openai-compatible" | "anthropic" | "custom";
 
 export const llmProviders: readonly LLMProvider[] = ["openai-compatible", "anthropic", "custom"];
 
+/** Where speech-to-text and text-to-speech run: in the browser or via a provider API. */
+export type SpeechEngine = "browser" | "provider";
+
+export const speechEngines: readonly SpeechEngine[] = ["browser", "provider"];
+
 /** Instance-wide overrides persisted in `app_settings`. `null` = use env/default. */
 export type SettingsOverrides = {
   provider: LLMProvider | null;
@@ -39,7 +44,41 @@ export type ResolvedLLMSettings = {
   systemPrompt: string | null;
 };
 
-/** What the settings API exposes to the UI. The API key itself is never returned. */
+/** Instance-wide speech overrides persisted in `app_settings` under `speech.*` keys. */
+export type SpeechSettingsOverrides = {
+  engine: SpeechEngine | null;
+  apiKey: string | null;
+  baseUrl: string | null;
+  sttModel: string | null;
+  ttsModel: string | null;
+  ttsVoice: string | null;
+};
+
+/** Per-user speech preference. `null` = use the instance default. */
+export type UserSpeechPrefs = {
+  engine: SpeechEngine | null;
+};
+
+/** Fully resolved speech configuration consumed by the speech API routes and client. */
+export type ResolvedSpeechSettings = {
+  engine: SpeechEngine;
+  apiKey: string | null;
+  baseUrl: string;
+  sttModel: string;
+  ttsModel: string;
+  ttsVoice: string;
+};
+
+/** Redacted speech configuration the client uses to pick engines. */
+export type SpeechEffectiveView = {
+  engine: SpeechEngine;
+  sttModel: string;
+  ttsModel: string;
+  ttsVoice: string;
+  providerConfigured: boolean;
+};
+
+/** What the settings API exposes to the UI. API keys are never returned. */
 export type SettingsView = {
   user: UserLLMPrefs;
   effective: {
@@ -56,6 +95,19 @@ export type SettingsView = {
     systemPrompt: string | null;
     hasStoredApiKey: boolean;
   } | null;
+  speech: {
+    user: UserSpeechPrefs;
+    effective: SpeechEffectiveView;
+    /** Present only for admins. */
+    instance: {
+      engine: SpeechEngine | null;
+      baseUrl: string | null;
+      sttModel: string | null;
+      ttsModel: string | null;
+      ttsVoice: string | null;
+      hasStoredApiKey: boolean;
+    } | null;
+  };
 };
 
 export type SettingsPayload = {

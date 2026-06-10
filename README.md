@@ -79,6 +79,12 @@ Everything can be configured in-app, so environment variables are optional. When
 | `LLM_MODEL` | Model name | `gpt-5.4-mini` (openai-compatible), `claude-haiku-4-5` (anthropic) |
 | `LLM_BASE_URL` | API base URL, e.g. `https://openrouter.ai/api/v1` | provider default |
 | `SQLITE_PATH` | Database file location | `data/translatarr.sqlite` |
+| `SPEECH_ENGINE` | Where speech runs: `browser` (Web Speech API, free) or `provider` (server-side audio API) | `browser` |
+| `SPEECH_API_KEY` | API key for provider speech | reuses `LLM_API_KEY` when the LLM provider is OpenAI-compatible |
+| `SPEECH_BASE_URL` | OpenAI-compatible audio API root | reuses `LLM_BASE_URL` when OpenAI-compatible, else `https://api.openai.com/v1` |
+| `SPEECH_STT_MODEL` | Transcription model | `whisper-1` |
+| `SPEECH_TTS_MODEL` | Text-to-speech model | `gpt-4o-mini-tts` |
+| `SPEECH_TTS_VOICE` | Text-to-speech voice id | `alloy` |
 
 Settings resolve per value as: **user preference** → **instance setting (admin)** → **environment variable** → built-in default.
 
@@ -94,6 +100,13 @@ The system prompt is also editable (per user or instance-wide) and supports `{{s
 - Translation direction is automatic within the pair: type in either language and it translates to the other one.
 - Click an alternative option on a translation card to feature it; the key-word glossary follows the selected option.
 - **Rename**/**Clear**/**Delete** manage the current chat from the top bar.
+
+### Voice
+
+- **Mic** (next to Send) dictates into the composer; **Speak** on a translation card reads it aloud.
+- **Voice** (top bar) opens conversation mode: tap a language, talk, and the translation is spoken back in the other language. Each utterance is saved as a turn in the current chat.
+- By default speech runs in the browser (Web Speech API). Microphone input needs Chrome, Edge, or Safari — or switch the engine to **provider** in Settings to use an OpenAI-compatible audio API (`/audio/transcriptions` + `/audio/speech`), which also covers Firefox.
+- Privacy note: browser speech recognition may send audio to the browser vendor's recognition service; provider mode sends audio to the configured speech base URL.
 
 ### Behind a reverse proxy / PWA install
 

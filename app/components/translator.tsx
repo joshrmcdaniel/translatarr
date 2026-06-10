@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatDetail, ChatSummary, ChatTurn } from "../lib/chat-types";
 import { autoDetectLanguage, languageName, languages } from "../lib/languages";
+import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types";
+import { unlockAudio } from "../lib/speech/speech-client";
+import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
 import type { TranslationOption, TranslationResponse } from "../lib/translation-schema";
 import type { User } from "../lib/user-store";
 import { BrandSeal } from "./brand-seal";
 import { SettingsDialog } from "./settings-dialog";
+import { VoiceMode } from "./voice-mode";
 
 const MAX_CHARS = 12000;
 const DEBOUNCE_MS = 1500;
@@ -30,10 +34,16 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [speechConfig, setSpeechConfig] = useState<SpeechEffectiveView | null>(null);
+  const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
   const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string } | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const dictationBase = useRef("");
+
+  const speechInput = useSpeechInput(speechConfig);
+  const speechOutput = useSpeechOutput(speechConfig);
 
   const trimmedText = text.trim();
   const isTooLong = text.length > MAX_CHARS;
@@ -43,6 +53,14 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   useEffect(() => {
     void initializeChats();
   }, []);
+
+  useEffect(() => {
+    if (settingsOpen) {
+      return;
+    }
+
+    void loadSpeechConfig().then(setSpeechConfig);
+  }, [settingsOpen]);
 
   useEffect(() => {
     setTitleDraft(activeChat?.title ?? "");
@@ -299,6 +317,61 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     window.setTimeout(() => setCopiedKey(null), 1200);
   }
 
+  function toggleDictation() {
+    unlockAudio();
+
+    if (speechInput.status === "listening") {
+      speechInput.stop();
+      return;
+    }
+
+    if (speechInput.status !== "idle") {
+      return;
+    }
+
+    dictationBase.current = text;
+    setError("");
+    speechInput.start(
+      sourceLang,
+      { continuous: true },
+      {
+        onInterim: (transcript) => setText(joinDictation(dictationBase.current, transcript)),
+        onFinal: (transcript) => {
+          const combined = joinDictation(dictationBase.current, transcript);
+          dictationBase.current = combined;
+          setText(combined);
+        },
+        onError: (speechError) => setError(speechError.message),
+      },
+    );
+  }
+
+  function speakTranslation(option: TranslationOption, key: string, lang: string) {
+    unlockAudio();
+    void speechOutput.speak(key, option.text, lang);
+  }
+
+  async function handleVoiceUtterance(utterance: string, fromLang: string, toLang: string): Promise<TranslationResponse> {
+    const chat = activeChat ?? (await createChat(fromLang, toLang));
+
+    if (!activeChat) {
+      setChats((current) => [toSummary(chat), ...current]);
+      setActiveChat(chat);
+    }
+
+    const updatedChat = await addChatTurn(chat.id, utterance, fromLang, toLang);
+    setActiveChat(updatedChat);
+    setChats((current) => upsertSummary(current, toSummary(updatedChat)));
+
+    const lastTurn = updatedChat.turns.at(-1);
+
+    if (!lastTurn) {
+      throw new Error("Translation failed.");
+    }
+
+    return lastTurn.result;
+  }
+
   return (
     <main className="app-shell">
       <section className="chat-workspace with-sidebar" aria-label="Translation chats">
@@ -451,6 +524,17 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 <input type="checkbox" checked={livePreview} onChange={(event) => setLivePreview(event.target.checked)} />
                 <span>Live preview</span>
               </label>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  unlockAudio();
+                  setVoiceModeOpen(true);
+                }}
+                disabled={!speechConfig}
+              >
+                Voice
+              </button>
               <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.turns.length}>
                 Clear
               </button>
@@ -472,7 +556,14 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             ) : null}
 
             {activeChat?.turns.map((entry) => (
-              <ConversationTurn key={entry.id} entry={entry} copiedKey={copiedKey} onCopy={copyTranslation} />
+              <ConversationTurn
+                key={entry.id}
+                entry={entry}
+                copiedKey={copiedKey}
+                onCopy={copyTranslation}
+                speakingKey={speechOutput.speakingId}
+                onSpeak={speechOutput.available ? speakTranslation : null}
+              />
             ))}
 
             {previewStatus === "loading" ? (
@@ -494,6 +585,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                   copyScope="preview"
                   copiedKey={copiedKey}
                   onCopy={copyTranslation}
+                  targetLang={targetLang}
+                  speakingKey={speechOutput.speakingId}
+                  onSpeak={speechOutput.available ? speakTranslation : null}
                 />
               </section>
             ) : null}
@@ -520,6 +614,16 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 <span className={isTooLong ? "counter over" : "counter"}>
                   {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
                 </span>
+                <button
+                  type="button"
+                  className={speechInput.status === "listening" ? "ghost-button mic-button recording" : "ghost-button mic-button"}
+                  onClick={toggleDictation}
+                  disabled={!speechInput.available || speechInput.status === "transcribing"}
+                  title={speechInput.reason ?? "Dictate source text"}
+                  aria-pressed={speechInput.status === "listening"}
+                >
+                  {speechInput.status === "listening" ? "Stop" : speechInput.status === "transcribing" ? "..." : "Mic"}
+                </button>
                 <button type="button" className="ghost-button" onClick={() => setText("")} disabled={!text}>
                   Clear
                 </button>
@@ -533,18 +637,58 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       </section>
 
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} isAdmin={user.role === "admin"} />
+
+      {voiceModeOpen && speechConfig ? (
+        <VoiceMode
+          turns={activeChat?.turns ?? []}
+          sourceLang={sourceLang}
+          targetLang={targetLang}
+          speech={speechConfig}
+          onUtterance={handleVoiceUtterance}
+          onSwap={swapLanguages}
+          onClose={() => setVoiceModeOpen(false)}
+        />
+      ) : null}
     </main>
   );
+}
+
+function joinDictation(base: string, transcript: string) {
+  if (!transcript) {
+    return base;
+  }
+
+  const trimmedBase = base.replace(/\s+$/, "");
+  return trimmedBase ? `${trimmedBase} ${transcript}` : transcript;
+}
+
+async function loadSpeechConfig(): Promise<SpeechEffectiveView | null> {
+  try {
+    const response = await fetch("/api/settings");
+    const payload = (await response.json()) as SettingsPayload & { error?: string };
+
+    if (!response.ok || !payload.settings) {
+      return null;
+    }
+
+    return payload.settings.speech.effective;
+  } catch {
+    return null;
+  }
 }
 
 function ConversationTurn({
   entry,
   copiedKey,
   onCopy,
+  speakingKey,
+  onSpeak,
 }: {
   entry: ChatTurn;
   copiedKey: string | null;
   onCopy: (option: TranslationOption, key: string) => void;
+  speakingKey: string | null;
+  onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
 }) {
   return (
     <section className="conversation-turn">
@@ -560,6 +704,9 @@ function ConversationTurn({
         copyScope={entry.id}
         copiedKey={copiedKey}
         onCopy={onCopy}
+        targetLang={entry.targetLang}
+        speakingKey={speakingKey}
+        onSpeak={onSpeak}
       />
     </section>
   );
@@ -571,12 +718,18 @@ function TranslationCard({
   copyScope,
   copiedKey,
   onCopy,
+  targetLang,
+  speakingKey,
+  onSpeak,
 }: {
   result: TranslationResponse;
   title: string;
   copyScope: string;
   copiedKey: string | null;
   onCopy: (option: TranslationOption, key: string) => void;
+  targetLang: string;
+  speakingKey: string | null;
+  onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -622,9 +775,20 @@ function TranslationCard({
                 <span className="source-equivalent">({option.sourceEquivalent})</span>
                 {option.register ? <span className="register">{option.register}</span> : null}
               </div>
-              <button type="button" className="copy-button" onClick={() => onCopy(option, copyKey)}>
-                {copiedKey === copyKey ? "Copied" : "Copy"}
-              </button>
+              <div className="option-actions">
+                <button type="button" className="copy-button" onClick={() => onCopy(option, copyKey)}>
+                  {copiedKey === copyKey ? "Copied" : "Copy"}
+                </button>
+                {onSpeak ? (
+                  <button
+                    type="button"
+                    className={speakingKey === copyKey ? "copy-button speak-button speaking" : "copy-button speak-button"}
+                    onClick={() => onSpeak(option, copyKey, targetLang)}
+                  >
+                    {speakingKey === copyKey ? "Stop" : "Speak"}
+                  </button>
+                ) : null}
+              </div>
             </article>
           );
         })}
