@@ -7,6 +7,7 @@
  */
 
 import { getDb } from "./db";
+import { resolveLocale, type Locale } from "./i18n/messages";
 import type { User } from "./user-store";
 import {
   llmProviders,
@@ -152,6 +153,18 @@ export function updateUserSpeechPrefs(userId: string, patch: Partial<UserSpeechP
   return getUserSpeechPrefs(userId);
 }
 
+export function getUserLocale(userId: string): Locale | null {
+  const rows = getDb().prepare("SELECT key, value FROM user_settings WHERE user_id = ?").all(userId) as SettingRow[];
+  const byKey = new Map(rows.map((row) => [row.key, row.value]));
+
+  return resolveLocale(byKey.get("locale"));
+}
+
+export function updateUserLocale(userId: string, locale: Locale | null): Locale | null {
+  applyKeyValuePatch({ locale }, "user_settings", userId);
+  return getUserLocale(userId);
+}
+
 export function resolveLLMSettings(userId?: string): ResolvedLLMSettings {
   const instance = getSettingsOverrides();
   const userPrefs = userId ? getUserPrefs(userId) : { model: null, systemPrompt: null };
@@ -194,6 +207,7 @@ export function getSettingsView(user: User): SettingsView {
   const speechEffective = resolveSpeechSettings(user.id);
 
   return {
+    locale: getUserLocale(user.id),
     user: getUserPrefs(user.id),
     effective: {
       provider: effective.provider,

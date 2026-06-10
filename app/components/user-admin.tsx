@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useI18n } from "../lib/i18n/i18n-context";
 import type { User, UserRole } from "../lib/user-store";
 
 export function UserAdmin() {
+  const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -21,12 +23,12 @@ export function UserAdmin() {
       const payload = (await response.json()) as { users?: User[]; error?: string };
 
       if (!response.ok || !payload.users) {
-        throw new Error(payload.error ?? "Could not load users.");
+        throw new Error(payload.error ?? t("users.loadFailed"));
       }
 
       setUsers(payload.users);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load users.");
+      setError(loadError instanceof Error ? loadError.message : t("users.loadFailed"));
     }
   }
 
@@ -44,7 +46,7 @@ export function UserAdmin() {
       const payload = (await response.json()) as { user?: User; error?: string };
 
       if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? "Could not create user.");
+        throw new Error(payload.error ?? t("users.createFailed"));
       }
 
       setUsername("");
@@ -52,7 +54,7 @@ export function UserAdmin() {
       setRole("user");
       await loadUsers();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Could not create user.");
+      setError(createError instanceof Error ? createError.message : t("users.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -67,12 +69,12 @@ export function UserAdmin() {
 
       if (!response.ok) {
         const payload = (await response.json()) as { error?: string };
-        throw new Error(payload.error ?? "Could not delete user.");
+        throw new Error(payload.error ?? t("users.deleteFailed"));
       }
 
       await loadUsers();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Could not delete user.");
+      setError(deleteError instanceof Error ? deleteError.message : t("users.deleteFailed"));
     } finally {
       setBusy(false);
     }
@@ -84,18 +86,18 @@ export function UserAdmin() {
         {users.map((user) => (
           <div className="user-row" key={user.id}>
             <strong>{user.username}</strong>
-            <span className="badge">{user.role}</span>
+            <span className="badge">{t(user.role === "admin" ? "users.badgeAdmin" : "users.badgeUser")}</span>
             <button
               type="button"
               className="ghost-button danger-button"
               disabled={busy}
               onClick={() => {
-                if (window.confirm(`Delete ${user.username}? Their chats and settings will be removed.`)) {
+                if (window.confirm(t("users.confirmDelete", { username: user.username }))) {
                   void removeUser(user.id);
                 }
               }}
             >
-              Delete
+              {t("common.delete")}
             </button>
           </div>
         ))}
@@ -104,7 +106,7 @@ export function UserAdmin() {
       <form className="user-add-form" onSubmit={addUser}>
         <div className="user-add-fields">
           <label className="settings-field">
-            <span>Username</span>
+            <span>{t("common.username")}</span>
             <input
               type="text"
               value={username}
@@ -113,7 +115,7 @@ export function UserAdmin() {
             />
           </label>
           <label className="settings-field">
-            <span>Password</span>
+            <span>{t("common.password")}</span>
             <input
               type="password"
               value={password}
@@ -122,15 +124,15 @@ export function UserAdmin() {
             />
           </label>
           <label className="settings-field">
-            <span>Role</span>
+            <span>{t("users.role")}</span>
             <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="user">{t("users.roleUser")}</option>
+              <option value="admin">{t("users.roleAdmin")}</option>
             </select>
           </label>
         </div>
         <button type="submit" className="ghost-button" disabled={busy || !username || !password}>
-          Add user
+          {t("users.add")}
         </button>
       </form>
 

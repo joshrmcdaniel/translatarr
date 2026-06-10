@@ -9,7 +9,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChatTurn } from "../lib/chat-types";
-import { autoDetectLanguage, languageName } from "../lib/languages";
+import { speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
+import { autoDetectLanguage } from "../lib/languages";
 import type { SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio, type SpeechError } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
@@ -41,6 +42,7 @@ export function VoiceMode({
   onSwap: () => void;
   onClose: () => void;
 }) {
+  const { t, languageLabel } = useI18n();
   const [activeSide, setActiveSide] = useState<Side | null>(null);
   const [busyPhase, setBusyPhase] = useState<BusyPhase>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function VoiceMode({
           void runUtterance({ side, transcript });
         },
         onError: (speechError: SpeechError) => {
-          setBanner(speechError.message);
+          setBanner(speechErrorMessage(t, speechError));
         },
         onEnd: () => {
           setActiveSide(null);
@@ -133,7 +135,11 @@ export function VoiceMode({
         await speechOutput.speak(`voice-${Date.now()}`, topOption.text, toLang);
       }
     } catch (utteranceError) {
-      setBanner(utteranceError instanceof Error ? utteranceError.message : "Translation failed.");
+      setBanner(
+        utteranceError instanceof Error && utteranceError.message
+          ? utteranceError.message
+          : t("common.translationFailed"),
+      );
       setRetryBuffer(pending);
     } finally {
       if (utteranceGeneration.current === generation) {
@@ -150,16 +156,16 @@ export function VoiceMode({
   }
 
   const statusLabel = needsConcreteSource
-    ? "Pick a source language (not auto-detect) to converse."
+    ? t("voice.pickConcreteSource")
     : phase === "listening"
-      ? `Listening in ${languageName(langFor(activeSide ?? "source"))}... tap again to stop.`
+      ? t("voice.listening", { language: languageLabel(langFor(activeSide ?? "source")) })
       : phase === "transcribing"
-        ? "Transcribing..."
+        ? t("voice.transcribing")
         : phase === "translating"
-          ? "Translating..."
+          ? t("voice.translating")
           : phase === "speaking"
-            ? "Speaking..."
-            : "Tap a language and start talking.";
+            ? t("voice.speaking")
+            : t("voice.tapToTalk");
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
@@ -167,35 +173,38 @@ export function VoiceMode({
         className="voice-mode"
         role="dialog"
         aria-modal="true"
-        aria-label="Voice conversation"
+        aria-label={t("voice.title")}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="voice-header">
-          <strong>Voice conversation</strong>
+          <strong>{t("voice.title")}</strong>
           <span className="badge">
-            {languageName(sourceLang)} ⇄ {languageName(targetLang)}
+            {languageLabel(sourceLang)} ⇄ {languageLabel(targetLang)}
           </span>
           <button type="button" className="ghost-button" onClick={onClose}>
-            Close
+            {t("common.close")}
           </button>
         </header>
 
         {!speechInput.available ? (
           <div className="voice-unsupported">
-            <p>{speechInput.reason ?? "Voice input is unavailable."}</p>
-            <p className="subtle">You can still use the speaker buttons on translations to hear them read aloud.</p>
+            <p>{t("speech.unavailableReason")}</p>
+            <p className="subtle">{t("voice.unavailableHint")}</p>
           </div>
         ) : (
           <>
             <div className="voice-transcript" ref={transcriptRef}>
               {turns.length === 0 && !speechInput.interim ? (
-                <div className="voice-empty">Conversation turns will appear here.</div>
+                <div className="voice-empty">{t("voice.emptyTranscript")}</div>
               ) : null}
 
               {turns.map((turn) => (
                 <div key={turn.id} className="voice-turn">
                   <span className="voice-turn-meta">
-                    {languageName(turn.sourceLang)} to {languageName(turn.targetLang)}
+                    {t("translator.languagePair", {
+                      source: languageLabel(turn.sourceLang),
+                      target: languageLabel(turn.targetLang),
+                    })}
                   </span>
                   <p className="voice-turn-source">{turn.text}</p>
                   <p className="voice-turn-translation">{turn.result.translations[0]?.text}</p>
@@ -221,7 +230,7 @@ export function VoiceMode({
                 <span>{banner}</span>
                 {retryBuffer ? (
                   <button type="button" className="ghost-button" onClick={() => void runUtterance(retryBuffer)}>
-                    Retry
+                    {t("common.retry")}
                   </button>
                 ) : null}
               </div>
@@ -229,9 +238,9 @@ export function VoiceMode({
 
             {speechOutput.error && replayable ? (
               <div className="voice-banner">
-                <span>Playback was blocked.</span>
+                <span>{t("voice.playbackBlocked")}</span>
                 <button type="button" className="ghost-button" onClick={replayLast}>
-                  Play translation
+                  {t("voice.playTranslation")}
                 </button>
               </div>
             ) : null}
@@ -245,12 +254,12 @@ export function VoiceMode({
                 onClick={() => tapSide("source")}
                 disabled={needsConcreteSource || (phase === "transcribing" || phase === "translating")}
               >
-                <small>Speak</small>
-                <strong>{languageName(sourceLang)}</strong>
+                <small>{t("voice.speakSide")}</small>
+                <strong>{languageLabel(sourceLang)}</strong>
               </button>
 
               <button type="button" className="swap-button" onClick={onSwap} disabled={phase !== "idle"}>
-                Swap
+                {t("common.swap")}
               </button>
 
               <button
@@ -261,8 +270,8 @@ export function VoiceMode({
                 onClick={() => tapSide("target")}
                 disabled={needsConcreteSource || (phase === "transcribing" || phase === "translating")}
               >
-                <small>Speak</small>
-                <strong>{languageName(targetLang)}</strong>
+                <small>{t("voice.speakSide")}</small>
+                <strong>{languageLabel(targetLang)}</strong>
               </button>
             </footer>
           </>

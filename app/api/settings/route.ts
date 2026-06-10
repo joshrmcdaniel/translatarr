@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "../../lib/auth";
-import { getSettingsView, updateUserPrefs, updateUserSpeechPrefs } from "../../lib/settings-store";
+import { locales } from "../../lib/i18n/messages";
+import { getSettingsView, updateUserLocale, updateUserPrefs, updateUserSpeechPrefs } from "../../lib/settings-store";
 import type { SettingsPayload } from "../../lib/settings-types";
 import { defaultPromptTemplate } from "../../lib/translation-service";
 import type { User } from "../../lib/user-store";
@@ -10,6 +11,7 @@ const userPrefsSchema = z.object({
   model: z.string().trim().max(200).nullable().optional(),
   systemPrompt: z.string().trim().max(8000).nullable().optional(),
   speechEngine: z.enum(["browser", "provider"]).nullable().optional(),
+  locale: z.enum(locales).nullable().optional(),
 });
 
 function buildPayload(user: User): SettingsPayload {
@@ -44,11 +46,15 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
   }
 
-  const { speechEngine, ...llmPrefs } = body;
+  const { speechEngine, locale, ...llmPrefs } = body;
   updateUserPrefs(user.id, llmPrefs);
 
   if (speechEngine !== undefined) {
     updateUserSpeechPrefs(user.id, { engine: speechEngine });
+  }
+
+  if (locale !== undefined) {
+    updateUserLocale(user.id, locale);
   }
 
   return NextResponse.json(buildPayload(user));

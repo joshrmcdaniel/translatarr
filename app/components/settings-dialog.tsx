@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "../lib/i18n/i18n-context";
+import { detectBrowserLocale, type Locale } from "../lib/i18n/messages";
 import type { LLMProvider, SettingsPayload, SpeechEngine } from "../lib/settings-types";
 import { UserAdmin } from "./user-admin";
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
 type UserPrefsForm = {
+  locale: "" | Locale;
   model: string;
   systemPrompt: string;
   speechEngine: "" | SpeechEngine;
@@ -26,7 +29,7 @@ type InstanceForm = {
   speechTtsVoice: string;
 };
 
-const emptyUserPrefs: UserPrefsForm = { model: "", systemPrompt: "", speechEngine: "" };
+const emptyUserPrefs: UserPrefsForm = { locale: "", model: "", systemPrompt: "", speechEngine: "" };
 const emptyInstance: InstanceForm = {
   provider: "",
   model: "",
@@ -50,6 +53,7 @@ export function SettingsDialog({
   onClose: () => void;
   isAdmin: boolean;
 }) {
+  const { t, setLocale } = useI18n();
   const [payload, setPayload] = useState<SettingsPayload | null>(null);
   const [userPrefs, setUserPrefs] = useState<UserPrefsForm>(emptyUserPrefs);
   const [instance, setInstance] = useState<InstanceForm>(emptyInstance);
@@ -80,13 +84,14 @@ export function SettingsDialog({
       setLoadStatus("success");
     } catch (loadError) {
       setLoadStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Could not load settings.");
+      setError(loadError instanceof Error ? loadError.message : t("settings.loadFailed"));
     }
   }
 
   function applyPayload(fetched: SettingsPayload) {
     setPayload(fetched);
     setUserPrefs({
+      locale: fetched.settings.locale ?? "",
       model: fetched.settings.user.model ?? "",
       systemPrompt: fetched.settings.user.systemPrompt ?? "",
       speechEngine: fetched.settings.speech.user.engine ?? "",
@@ -116,6 +121,7 @@ export function SettingsDialog({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            locale: userPrefs.locale || null,
             model: userPrefs.model.trim() || null,
             systemPrompt: userPrefs.systemPrompt.trim() || null,
             speechEngine: userPrefs.speechEngine || null,
@@ -157,12 +163,13 @@ export function SettingsDialog({
       }
 
       applyPayload(updated);
+      setLocale(updated.settings.locale ?? detectBrowserLocale());
       setClearApiKey(false);
       setClearSpeechApiKey(false);
       setSaveStatus("success");
     } catch (saveError) {
       setSaveStatus("error");
-      setError(saveError instanceof Error ? saveError.message : "Could not save settings.");
+      setError(saveError instanceof Error ? saveError.message : t("settings.saveFailed"));
     }
   }
 
@@ -175,15 +182,16 @@ export function SettingsDialog({
         await fetch("/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: null, systemPrompt: null, speechEngine: null }),
+          body: JSON.stringify({ locale: null, model: null, systemPrompt: null, speechEngine: null }),
         }),
       );
 
       applyPayload(updated);
+      setLocale(detectBrowserLocale());
       setSaveStatus("success");
     } catch (resetError) {
       setSaveStatus("error");
-      setError(resetError instanceof Error ? resetError.message : "Could not reset settings.");
+      setError(resetError instanceof Error ? resetError.message : t("settings.resetFailed"));
     }
   }
 
@@ -203,66 +211,80 @@ export function SettingsDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="settings-header">
-          <strong>Settings</strong>
+          <strong>{t("common.settings")}</strong>
           <button type="button" className="ghost-button" onClick={onClose}>
-            Close
+            {t("common.close")}
           </button>
         </header>
 
-        {loadStatus === "loading" ? <p className="subtle">Loading settings...</p> : null}
+        {loadStatus === "loading" ? <p className="subtle">{t("settings.loading")}</p> : null}
 
         {settings && loadStatus === "success" ? (
           <>
             <section className="settings-section">
-              <h3>Your preferences</h3>
+              <h3>{t("settings.yourPreferences")}</h3>
               <div className="settings-body">
                 <label className="settings-field">
-                  <span>Model</span>
+                  <span>{t("settings.interfaceLanguage")}</span>
+                  <select
+                    value={userPrefs.locale}
+                    onChange={(event) =>
+                      setUserPrefs({ ...userPrefs, locale: event.target.value as UserPrefsForm["locale"] })
+                    }
+                  >
+                    <option value="">{t("settings.interfaceLanguageDefault")}</option>
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                    <option value="yue">廣東話</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                  </select>
+                </label>
+
+                <label className="settings-field">
+                  <span>{t("settings.model")}</span>
                   <input
                     type="text"
                     value={userPrefs.model}
                     placeholder={settings.effective.model}
                     onChange={(event) => setUserPrefs({ ...userPrefs, model: event.target.value })}
                   />
-                  <small className="field-hint">Leave blank to use the instance default.</small>
+                  <small className="field-hint">{t("settings.blankUsesInstanceDefault")}</small>
                 </label>
 
                 <label className="settings-field">
-                  <span>System prompt</span>
+                  <span>{t("settings.systemPrompt")}</span>
                   <textarea
                     value={userPrefs.systemPrompt}
                     placeholder={payload?.defaultSystemPrompt}
                     rows={6}
                     onChange={(event) => setUserPrefs({ ...userPrefs, systemPrompt: event.target.value })}
                   />
-                  <small className="field-hint">
-                    Leave blank to use the instance default. Use {"{{source}}"} and {"{{target}}"} as language
-                    placeholders. JSON output-format instructions are appended automatically.
-                  </small>
+                  <small className="field-hint">{t("settings.systemPromptHint")}</small>
                 </label>
               </div>
             </section>
 
             <section className="settings-section">
-              <h3>Voice</h3>
+              <h3>{t("settings.voiceSection")}</h3>
               <div className="settings-body">
                 <label className="settings-field">
-                  <span>Speech engine</span>
+                  <span>{t("settings.speechEngine")}</span>
                   <select
                     value={userPrefs.speechEngine}
                     onChange={(event) =>
                       setUserPrefs({ ...userPrefs, speechEngine: event.target.value as UserPrefsForm["speechEngine"] })
                     }
                   >
-                    <option value="">Default ({settings.speech.effective.engine})</option>
-                    <option value="browser">Browser (built-in, free)</option>
-                    <option value="provider">Provider (server-side)</option>
+                    <option value="">{t("settings.engineDefault", { engine: settings.speech.effective.engine })}</option>
+                    <option value="browser">{t("settings.engineBrowser")}</option>
+                    <option value="provider">{t("settings.engineProvider")}</option>
                   </select>
                   <small className="field-hint">
-                    Browser uses your device&apos;s speech recognition and voices.{" "}
+                    {t("settings.speechEngineHint")}{" "}
                     {settings.speech.effective.providerConfigured
-                      ? "A speech provider is configured and available."
-                      : "Provider mode needs an admin-configured speech provider before it works."}
+                      ? t("settings.speechProviderReady")
+                      : t("settings.speechProviderMissing")}
                   </small>
                 </label>
               </div>
@@ -271,66 +293,61 @@ export function SettingsDialog({
             {isAdmin && settings.instance ? (
               <>
                 <section className="settings-section">
-                  <h3>Instance settings (admin)</h3>
+                  <h3>{t("settings.instanceSection")}</h3>
                   <div className="settings-body">
                     <label className="settings-field">
-                      <span>Provider</span>
+                      <span>{t("settings.provider")}</span>
                       <select
                         value={instance.provider}
                         onChange={(event) =>
                           setInstance({ ...instance, provider: event.target.value as InstanceForm["provider"] })
                         }
                       >
-                        <option value="">Default ({settings.effective.provider})</option>
-                        <option value="openai-compatible">OpenAI-compatible</option>
-                        <option value="anthropic">Anthropic</option>
-                        <option value="custom">Custom (not yet implemented)</option>
+                        <option value="">{t("settings.providerDefault", { provider: settings.effective.provider })}</option>
+                        <option value="openai-compatible">{t("settings.providerOpenAI")}</option>
+                        <option value="anthropic">{t("settings.providerAnthropic")}</option>
+                        <option value="custom">{t("settings.providerCustom")}</option>
                       </select>
                     </label>
 
                     <label className="settings-field">
-                      <span>Default model</span>
+                      <span>{t("settings.defaultModel")}</span>
                       <input
                         type="text"
                         value={instance.model}
                         placeholder={settings.effective.model}
                         onChange={(event) => setInstance({ ...instance, model: event.target.value })}
                       />
-                      <small className="field-hint">Users can override this with their own model preference.</small>
+                      <small className="field-hint">{t("settings.modelOverrideHint")}</small>
                     </label>
 
                     <label className="settings-field">
-                      <span>Base URL</span>
+                      <span>{t("settings.baseUrl")}</span>
                       <input
                         type="text"
                         value={instance.baseUrl}
                         placeholder={settings.effective.baseUrl}
                         onChange={(event) => setInstance({ ...instance, baseUrl: event.target.value })}
                       />
-                      <small className="field-hint">
-                        API root only, e.g. https://openrouter.ai/api/v1 — endpoint paths like /chat/completions are
-                        added automatically.
-                      </small>
+                      <small className="field-hint">{t("settings.baseUrlHint")}</small>
                     </label>
 
                     <label className="settings-field">
-                      <span>API key</span>
+                      <span>{t("settings.apiKey")}</span>
                       <input
                         type="password"
                         value={instance.apiKey}
-                        placeholder={
-                          settings.effective.hasApiKey ? "Leave blank to keep the current key" : "Enter an API key"
-                        }
+                        placeholder={settings.effective.hasApiKey ? t("settings.keepCurrentKey") : t("settings.enterApiKey")}
                         autoComplete="off"
                         disabled={clearApiKey}
                         onChange={(event) => setInstance({ ...instance, apiKey: event.target.value })}
                       />
                       <small className="field-hint">
                         {settings.instance.hasStoredApiKey
-                          ? "A key is stored in instance settings."
+                          ? t("settings.keyStored")
                           : settings.effective.hasApiKey
-                            ? "Using the key from the LLM_API_KEY environment variable."
-                            : "No API key configured. Translations will fail until one is set."}
+                            ? t("settings.keyFromEnv")
+                            : t("settings.keyMissing")}
                       </small>
                       {settings.instance.hasStoredApiKey ? (
                         <label className="toggle">
@@ -339,65 +356,62 @@ export function SettingsDialog({
                             checked={clearApiKey}
                             onChange={(event) => setClearApiKey(event.target.checked)}
                           />
-                          <span>Remove stored key on save</span>
+                          <span>{t("settings.removeStoredKey")}</span>
                         </label>
                       ) : null}
                     </label>
 
                     <label className="settings-field">
-                      <span>Default system prompt</span>
+                      <span>{t("settings.defaultSystemPrompt")}</span>
                       <textarea
                         value={instance.systemPrompt}
                         placeholder={payload?.defaultSystemPrompt}
                         rows={5}
                         onChange={(event) => setInstance({ ...instance, systemPrompt: event.target.value })}
                       />
-                      <small className="field-hint">Instance-wide default; users can override it for themselves.</small>
+                      <small className="field-hint">{t("settings.instancePromptHint")}</small>
                     </label>
                   </div>
                 </section>
 
                 <section className="settings-section">
-                  <h3>Voice provider (admin)</h3>
+                  <h3>{t("settings.voiceProviderSection")}</h3>
                   <div className="settings-body">
                     <label className="settings-field">
-                      <span>Default engine</span>
+                      <span>{t("settings.defaultEngine")}</span>
                       <select
                         value={instance.speechEngine}
                         onChange={(event) =>
                           setInstance({ ...instance, speechEngine: event.target.value as InstanceForm["speechEngine"] })
                         }
                       >
-                        <option value="">Default (browser)</option>
-                        <option value="browser">Browser (built-in, free)</option>
-                        <option value="provider">Provider (server-side)</option>
+                        <option value="">{t("settings.engineDefaultBrowser")}</option>
+                        <option value="browser">{t("settings.engineBrowser")}</option>
+                        <option value="provider">{t("settings.engineProvider")}</option>
                       </select>
-                      <small className="field-hint">Users can override the engine for themselves.</small>
+                      <small className="field-hint">{t("settings.engineOverrideHint")}</small>
                     </label>
 
                     <label className="settings-field">
-                      <span>Speech base URL</span>
+                      <span>{t("settings.speechBaseUrl")}</span>
                       <input
                         type="text"
                         value={instance.speechBaseUrl}
                         placeholder="https://api.openai.com/v1"
                         onChange={(event) => setInstance({ ...instance, speechBaseUrl: event.target.value })}
                       />
-                      <small className="field-hint">
-                        OpenAI-compatible audio API root. Leave blank to reuse the LLM provider&apos;s base URL when it
-                        is OpenAI-compatible.
-                      </small>
+                      <small className="field-hint">{t("settings.speechBaseUrlHint")}</small>
                     </label>
 
                     <label className="settings-field">
-                      <span>Speech API key</span>
+                      <span>{t("settings.speechApiKey")}</span>
                       <input
                         type="password"
                         value={instance.speechApiKey}
                         placeholder={
                           settings.speech.effective.providerConfigured
-                            ? "Leave blank to keep the current key"
-                            : "Enter an API key"
+                            ? t("settings.keepCurrentKey")
+                            : t("settings.enterApiKey")
                         }
                         autoComplete="off"
                         disabled={clearSpeechApiKey}
@@ -405,10 +419,10 @@ export function SettingsDialog({
                       />
                       <small className="field-hint">
                         {settings.speech.instance?.hasStoredApiKey
-                          ? "A speech key is stored in instance settings."
+                          ? t("settings.speechKeyStored")
                           : settings.speech.effective.providerConfigured
-                            ? "Reusing the LLM provider's key (or SPEECH_API_KEY)."
-                            : "No speech key available. Provider speech stays disabled until one is set."}
+                            ? t("settings.speechKeyReused")
+                            : t("settings.speechKeyMissing")}
                       </small>
                       {settings.speech.instance?.hasStoredApiKey ? (
                         <label className="toggle">
@@ -417,13 +431,13 @@ export function SettingsDialog({
                             checked={clearSpeechApiKey}
                             onChange={(event) => setClearSpeechApiKey(event.target.checked)}
                           />
-                          <span>Remove stored key on save</span>
+                          <span>{t("settings.removeStoredKey")}</span>
                         </label>
                       ) : null}
                     </label>
 
                     <label className="settings-field">
-                      <span>Transcription model</span>
+                      <span>{t("settings.sttModel")}</span>
                       <input
                         type="text"
                         value={instance.speechSttModel}
@@ -433,7 +447,7 @@ export function SettingsDialog({
                     </label>
 
                     <label className="settings-field">
-                      <span>Speech model</span>
+                      <span>{t("settings.ttsModel")}</span>
                       <input
                         type="text"
                         value={instance.speechTtsModel}
@@ -443,20 +457,20 @@ export function SettingsDialog({
                     </label>
 
                     <label className="settings-field">
-                      <span>Speech voice</span>
+                      <span>{t("settings.ttsVoice")}</span>
                       <input
                         type="text"
                         value={instance.speechTtsVoice}
                         placeholder={settings.speech.effective.ttsVoice}
                         onChange={(event) => setInstance({ ...instance, speechTtsVoice: event.target.value })}
                       />
-                      <small className="field-hint">Provider voice id, e.g. alloy, nova, shimmer.</small>
+                      <small className="field-hint">{t("settings.ttsVoiceHint")}</small>
                     </label>
                   </div>
                 </section>
 
                 <section className="settings-section">
-                  <h3>Users (admin)</h3>
+                  <h3>{t("settings.usersSection")}</h3>
                   <UserAdmin />
                 </section>
               </>
@@ -465,7 +479,7 @@ export function SettingsDialog({
         ) : null}
 
         {error ? <p className="composer-error">{error}</p> : null}
-        {saveStatus === "success" && !error ? <p className="settings-saved">Settings saved.</p> : null}
+        {saveStatus === "success" && !error ? <p className="settings-saved">{t("settings.saved")}</p> : null}
 
         <footer className="settings-actions">
           <button
@@ -474,11 +488,11 @@ export function SettingsDialog({
             onClick={resetUserPrefs}
             disabled={saveStatus === "loading" || loadStatus !== "success"}
           >
-            Reset my preferences
+            {t("settings.resetMine")}
           </button>
           <div className="settings-actions-right">
             <button type="button" className="ghost-button" onClick={onClose}>
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -486,7 +500,7 @@ export function SettingsDialog({
               onClick={saveSettings}
               disabled={saveStatus === "loading" || loadStatus !== "success"}
             >
-              {saveStatus === "loading" ? "Saving..." : "Save"}
+              {saveStatus === "loading" ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </footer>

@@ -11,6 +11,8 @@
  * provider default.
  */
 
+import type { Locale } from "./i18n/messages";
+
 export type LLMProvider = "openai-compatible" | "anthropic" | "custom";
 
 export const llmProviders: readonly LLMProvider[] = ["openai-compatible", "anthropic", "custom"];
@@ -80,6 +82,8 @@ export type SpeechEffectiveView = {
 
 /** What the settings API exposes to the UI. API keys are never returned. */
 export type SettingsView = {
+  /** The user's UI-language preference; `null` = follow the browser language. */
+  locale: Locale | null;
   user: UserLLMPrefs;
   effective: {
     provider: LLMProvider;

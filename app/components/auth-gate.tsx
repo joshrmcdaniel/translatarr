@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useI18n } from "../lib/i18n/i18n-context";
 import type { User } from "../lib/user-store";
 import { BrandSeal } from "./brand-seal";
 import { Translator } from "./translator";
@@ -8,6 +9,7 @@ import { Translator } from "./translator";
 type GateState = "loading" | "setup" | "login" | "ready";
 
 export function AuthGate() {
+  const { t } = useI18n();
   const [state, setState] = useState<GateState>("loading");
   const [user, setUser] = useState<User | null>(null);
 
@@ -40,7 +42,7 @@ export function AuthGate() {
   if (state === "loading") {
     return (
       <main className="auth-shell">
-        <p className="subtle">Loading...</p>
+        <p className="subtle">{t("common.loading")}</p>
       </main>
     );
   }
@@ -67,6 +69,7 @@ function AuthForm({
   mode: "setup" | "login";
   onAuthenticated: (user: User) => void;
 }) {
+  const { t } = useI18n();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -86,12 +89,12 @@ function AuthForm({
       const payload = (await response.json()) as { user?: User; error?: string };
 
       if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? "Authentication failed.");
+        throw new Error(payload.error ?? t("auth.failed"));
       }
 
       onAuthenticated(payload.user);
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Authentication failed.");
+      setError(authError instanceof Error ? authError.message : t("auth.failed"));
       setSubmitting(false);
     }
   }
@@ -103,14 +106,10 @@ function AuthForm({
           <BrandSeal size={30} />
           Translatarr
         </h1>
-        <p className="subtle">
-          {mode === "setup"
-            ? "Welcome! Create the admin account to finish setting up this instance."
-            : "Sign in to continue."}
-        </p>
+        <p className="subtle">{mode === "setup" ? t("auth.setupWelcome") : t("auth.signInPrompt")}</p>
 
         <label className="settings-field">
-          <span>Username</span>
+          <span>{t("common.username")}</span>
           <input
             type="text"
             value={username}
@@ -121,20 +120,20 @@ function AuthForm({
         </label>
 
         <label className="settings-field">
-          <span>Password</span>
+          <span>{t("common.password")}</span>
           <input
             type="password"
             value={password}
             autoComplete={mode === "setup" ? "new-password" : "current-password"}
             onChange={(event) => setPassword(event.target.value)}
           />
-          {mode === "setup" ? <small className="field-hint">At least 8 characters.</small> : null}
+          {mode === "setup" ? <small className="field-hint">{t("auth.passwordHint")}</small> : null}
         </label>
 
         {error ? <p className="composer-error">{error}</p> : null}
 
         <button type="submit" className="send-button" disabled={submitting || !username || !password}>
-          {submitting ? "Working..." : mode === "setup" ? "Create admin account" : "Sign in"}
+          {submitting ? t("auth.working") : mode === "setup" ? t("auth.createAdmin") : t("auth.signIn")}
         </button>
       </form>
     </main>

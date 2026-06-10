@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatDetail, ChatSummary, ChatTurn } from "../lib/chat-types";
-import { autoDetectLanguage, languageName, languages } from "../lib/languages";
+import { speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
+import { detectBrowserLocale, type Locale } from "../lib/i18n/messages";
+import { autoDetectLanguage, languages } from "../lib/languages";
 import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
@@ -18,6 +20,7 @@ const DEBOUNCE_MS = 1500;
 type RequestState = "idle" | "loading" | "error" | "success";
 
 export function Translator({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const { t, languageLabel, setLocale } = useI18n();
   const [text, setText] = useState("");
   const [sourceLang, setSourceLang] = useState(autoDetectLanguage.code);
   const [targetLang, setTargetLang] = useState("es");
@@ -59,8 +62,15 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       return;
     }
 
-    void loadSpeechConfig().then(setSpeechConfig);
-  }, [settingsOpen]);
+    void loadClientSettings().then((loaded) => {
+      if (!loaded) {
+        return;
+      }
+
+      setSpeechConfig(loaded.speech);
+      setLocale(loaded.locale ?? detectBrowserLocale());
+    });
+  }, [settingsOpen, setLocale]);
 
   useEffect(() => {
     setTitleDraft(activeChat?.title ?? "");
@@ -87,7 +97,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     if (isTooLong) {
       setPreviewResult(null);
       setPreviewStatus("error");
-      setError(`Keep the source text under ${MAX_CHARS.toLocaleString()} characters.`);
+      setError(t("translator.tooLong", { max: MAX_CHARS.toLocaleString() }));
       return;
     }
 
@@ -116,7 +126,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
         setPreviewResult(null);
         setPreviewStatus("error");
-        setError(translationError instanceof Error ? translationError.message : "Translation failed.");
+        setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
       }
     }, DEBOUNCE_MS);
 
@@ -124,15 +134,15 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [trimmedText, sourceLang, targetLang, livePreview, isTooLong]);
+  }, [trimmedText, sourceLang, targetLang, livePreview, isTooLong, t]);
 
   const detectedLabel = useMemo(() => {
     if (!latestResult) {
-      return "No detection yet";
+      return t("translator.noDetection");
     }
 
-    return `${languageName(latestResult.detectedSourceLanguage)} - ${Math.round(latestResult.confidence * 100)}%`;
-  }, [latestResult]);
+    return `${languageLabel(latestResult.detectedSourceLanguage)} - ${Math.round(latestResult.confidence * 100)}%`;
+  }, [latestResult, t, languageLabel]);
 
   async function initializeChats() {
     setLoadStatus("loading");
@@ -152,7 +162,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setLoadStatus("success");
     } catch (loadError) {
       setLoadStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Could not load chats.");
+      setError(loadError instanceof Error ? loadError.message : t("translator.chatsLoadFailed"));
     }
   }
 
@@ -175,7 +185,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setLoadStatus("success");
     } catch (loadError) {
       setLoadStatus("error");
-      setError(loadError instanceof Error ? loadError.message : "Could not load chat.");
+      setError(loadError instanceof Error ? loadError.message : t("translator.chatLoadFailed"));
     }
   }
 
@@ -192,7 +202,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setLoadStatus("success");
     } catch (createError) {
       setLoadStatus("error");
-      setError(createError instanceof Error ? createError.message : "Could not create chat.");
+      setError(createError instanceof Error ? createError.message : t("translator.chatCreateFailed"));
     }
   }
 
@@ -225,7 +235,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setSendStatus("success");
     } catch (translationError) {
       setSendStatus("error");
-      setError(translationError instanceof Error ? translationError.message : "Translation failed.");
+      setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
     }
   }
 
@@ -244,7 +254,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setLoadStatus("success");
     } catch (clearError) {
       setLoadStatus("error");
-      setError(clearError instanceof Error ? clearError.message : "Could not clear chat.");
+      setError(clearError instanceof Error ? clearError.message : t("translator.chatClearFailed"));
     }
   }
 
@@ -274,7 +284,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setLoadStatus("success");
     } catch (deleteError) {
       setLoadStatus("error");
-      setError(deleteError instanceof Error ? deleteError.message : "Could not delete chat.");
+      setError(deleteError instanceof Error ? deleteError.message : t("translator.chatDeleteFailed"));
     }
   }
 
@@ -296,7 +306,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setChats((current) => upsertSummary(current, toSummary(chat)));
     } catch (renameError) {
       setTitleDraft(activeChat.title);
-      setError(renameError instanceof Error ? renameError.message : "Could not rename chat.");
+      setError(renameError instanceof Error ? renameError.message : t("translator.chatRenameFailed"));
     } finally {
       setEditingTitle(false);
     }
@@ -341,7 +351,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
           dictationBase.current = combined;
           setText(combined);
         },
-        onError: (speechError) => setError(speechError.message),
+        onError: (speechError) => setError(speechErrorMessage(t, speechError)),
       },
     );
   }
@@ -366,7 +376,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     const lastTurn = updatedChat.turns.at(-1);
 
     if (!lastTurn) {
-      throw new Error("Translation failed.");
+      throw new Error(t("common.translationFailed"));
     }
 
     return lastTurn.result;
@@ -374,11 +384,11 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
   return (
     <main className="app-shell">
-      <section className="chat-workspace with-sidebar" aria-label="Translation chats">
+      <section className="chat-workspace with-sidebar" aria-label={t("translator.translationChats")}>
         {sidebarOpen ? (
           <div className="sidebar-backdrop" aria-hidden="true" onClick={() => setSidebarOpen(false)} />
         ) : null}
-        <aside className={sidebarOpen ? "chat-sidebar open" : "chat-sidebar"} aria-label="Chats">
+        <aside className={sidebarOpen ? "chat-sidebar open" : "chat-sidebar"} aria-label={t("translator.chats")}>
           <div className="sidebar-header">
             <div className="brand">
               <BrandSeal />
@@ -386,7 +396,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             </div>
             <div className="sidebar-header-actions">
               <button type="button" className="send-button" onClick={createNewChat}>
-                New
+                {t("translator.new")}
               </button>
             </div>
           </div>
@@ -402,26 +412,29 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 >
                   <span>{chat.title}</span>
                   <small>
-                    {languageName(chat.sourceLang)} to {languageName(chat.targetLang)}
+                    {t("translator.languagePair", {
+                      source: languageLabel(chat.sourceLang),
+                      target: languageLabel(chat.targetLang),
+                    })}
                   </small>
                 </button>
               ))
             ) : (
-              <div className="sidebar-empty">No chats yet.</div>
+              <div className="sidebar-empty">{t("translator.noChats")}</div>
             )}
           </div>
 
           <div className="sidebar-footer">
             <div className="user-chip">
               <strong>{user.username}</strong>
-              <small>{user.role}</small>
+              <small>{t(user.role === "admin" ? "users.badgeAdmin" : "users.badgeUser")}</small>
             </div>
             <div className="sidebar-footer-actions">
               <button type="button" className="ghost-button" onClick={() => setSettingsOpen(true)}>
-                Settings
+                {t("common.settings")}
               </button>
               <button type="button" className="ghost-button" onClick={onLogout}>
-                Log out
+                {t("translator.logOut")}
               </button>
             </div>
           </div>
@@ -433,7 +446,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <button
                 type="button"
                 className="ghost-button menu-button"
-                aria-label="Open chats"
+                aria-label={t("translator.openChats")}
                 aria-expanded={sidebarOpen}
                 onClick={() => setSidebarOpen(true)}
               >
@@ -449,8 +462,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                       value={titleDraft}
                       maxLength={80}
                       autoFocus
-                      aria-label="Chat title"
-                      placeholder="Chat title"
+                      aria-label={t("translator.chatTitle")}
+                      placeholder={t("translator.chatTitle")}
                       onChange={(event) => setTitleDraft(event.target.value)}
                       onBlur={() => {
                         if (cancelTitleEdit.current) {
@@ -481,7 +494,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                           setEditingTitle(true);
                         }}
                       >
-                        Rename
+                        {t("common.rename")}
                       </button>
                     </>
                   )}
@@ -491,27 +504,27 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
             <div className="language-controls">
               <label>
-                <span>From</span>
+                <span>{t("translator.from")}</span>
                 <select value={sourceLang} onChange={(event) => setSourceLang(event.target.value)}>
-                  <option value={autoDetectLanguage.code}>{autoDetectLanguage.name}</option>
+                  <option value={autoDetectLanguage.code}>{languageLabel(autoDetectLanguage.code)}</option>
                   {languages.map((language) => (
                     <option key={language.code} value={language.code}>
-                      {language.name}
+                      {languageLabel(language.code)}
                     </option>
                   ))}
                 </select>
               </label>
 
-              <button type="button" className="swap-button" onClick={swapLanguages} aria-label="Swap languages">
-                Swap
+              <button type="button" className="swap-button" onClick={swapLanguages} aria-label={t("translator.swapLanguages")}>
+                {t("common.swap")}
               </button>
 
               <label>
-                <span>To</span>
+                <span>{t("translator.to")}</span>
                 <select value={targetLang} onChange={(event) => setTargetLang(event.target.value)}>
                   {languages.map((language) => (
                     <option key={language.code} value={language.code}>
-                      {language.name}
+                      {languageLabel(language.code)}
                     </option>
                   ))}
                 </select>
@@ -522,7 +535,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <span className="badge">{detectedLabel}</span>
               <label className="toggle">
                 <input type="checkbox" checked={livePreview} onChange={(event) => setLivePreview(event.target.checked)} />
-                <span>Live preview</span>
+                <span>{t("translator.livePreview")}</span>
               </label>
               <button
                 type="button"
@@ -533,26 +546,28 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 }}
                 disabled={!speechConfig}
               >
-                Voice
+                {t("translator.voice")}
               </button>
               <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.turns.length}>
-                Clear
+                {t("common.clear")}
               </button>
               <button type="button" className="ghost-button danger-button" onClick={removeActiveChat} disabled={!activeChat}>
-                Delete
+                {t("common.delete")}
               </button>
             </div>
           </header>
 
           <div className="timeline" ref={timelineRef}>
-            {loadStatus === "loading" && !activeChat ? <div className="conversation-empty">Loading chats...</div> : null}
+            {loadStatus === "loading" && !activeChat ? (
+              <div className="conversation-empty">{t("translator.loadingChats")}</div>
+            ) : null}
 
             {loadStatus !== "loading" && !activeChat && !previewResult ? (
-              <div className="conversation-empty">Create a chat or send text to start one.</div>
+              <div className="conversation-empty">{t("translator.emptyNoChat")}</div>
             ) : null}
 
             {activeChat?.turns.length === 0 && !previewResult && previewStatus !== "loading" ? (
-              <div className="conversation-empty">Send text to start this translation thread.</div>
+              <div className="conversation-empty">{t("translator.emptyChat")}</div>
             ) : null}
 
             {activeChat?.turns.map((entry) => (
@@ -569,19 +584,19 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             {previewStatus === "loading" ? (
               <div className="assistant-message pending">
                 <span className="typing-dot" />
-                <span>Previewing translation...</span>
+                <span>{t("translator.previewing")}</span>
               </div>
             ) : null}
 
             {previewResult ? (
-              <section className="preview-turn" aria-label="Live translation preview">
+              <section className="preview-turn" aria-label={t("translator.livePreviewAria")}>
                 <div className="user-message draft">
-                  <span className="message-meta">Draft</span>
+                  <span className="message-meta">{t("translator.draft")}</span>
                   <p>{trimmedText}</p>
                 </div>
                 <TranslationCard
                   result={previewResult}
-                  title="Live Preview"
+                  title={t("translator.livePreviewTitle")}
                   copyScope="preview"
                   copiedKey={copiedKey}
                   onCopy={copyTranslation}
@@ -605,8 +620,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                     void sendMessage();
                   }
                 }}
-                placeholder="Enter text, then press Enter to send"
-                aria-label="Source text"
+                placeholder={t("translator.composerPlaceholder")}
+                aria-label={t("translator.sourceText")}
                 spellCheck="true"
                 rows={3}
               />
@@ -619,16 +634,20 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                   className={speechInput.status === "listening" ? "ghost-button mic-button recording" : "ghost-button mic-button"}
                   onClick={toggleDictation}
                   disabled={!speechInput.available || speechInput.status === "transcribing"}
-                  title={speechInput.reason ?? "Dictate source text"}
+                  title={speechInput.available ? t("translator.dictate") : t("speech.unavailableReason")}
                   aria-pressed={speechInput.status === "listening"}
                 >
-                  {speechInput.status === "listening" ? "Stop" : speechInput.status === "transcribing" ? "..." : "Mic"}
+                  {speechInput.status === "listening"
+                    ? t("common.stop")
+                    : speechInput.status === "transcribing"
+                      ? "..."
+                      : t("translator.mic")}
                 </button>
                 <button type="button" className="ghost-button" onClick={() => setText("")} disabled={!text}>
-                  Clear
+                  {t("common.clear")}
                 </button>
                 <button type="button" className="send-button" onClick={sendMessage} disabled={!canSend}>
-                  {sendStatus === "loading" ? "Sending..." : "Send"}
+                  {sendStatus === "loading" ? t("common.sending") : t("common.send")}
                 </button>
               </div>
             </div>
@@ -662,7 +681,12 @@ function joinDictation(base: string, transcript: string) {
   return trimmedBase ? `${trimmedBase} ${transcript}` : transcript;
 }
 
-async function loadSpeechConfig(): Promise<SpeechEffectiveView | null> {
+type ClientSettings = {
+  speech: SpeechEffectiveView;
+  locale: Locale | null;
+};
+
+async function loadClientSettings(): Promise<ClientSettings | null> {
   try {
     const response = await fetch("/api/settings");
     const payload = (await response.json()) as SettingsPayload & { error?: string };
@@ -671,7 +695,7 @@ async function loadSpeechConfig(): Promise<SpeechEffectiveView | null> {
       return null;
     }
 
-    return payload.settings.speech.effective;
+    return { speech: payload.settings.speech.effective, locale: payload.settings.locale };
   } catch {
     return null;
   }
@@ -690,17 +714,22 @@ function ConversationTurn({
   speakingKey: string | null;
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
 }) {
+  const { t, languageLabel } = useI18n();
+
   return (
     <section className="conversation-turn">
       <div className="user-message">
         <span className="message-meta">
-          {languageName(entry.sourceLang)} to {languageName(entry.targetLang)}
+          {t("translator.languagePair", {
+            source: languageLabel(entry.sourceLang),
+            target: languageLabel(entry.targetLang),
+          })}
         </span>
         <p>{entry.text}</p>
       </div>
       <TranslationCard
         result={entry.result}
-        title="Translation"
+        title={t("translator.translation")}
         copyScope={entry.id}
         copiedKey={copiedKey}
         onCopy={onCopy}
@@ -731,6 +760,7 @@ function TranslationCard({
   speakingKey: string | null;
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
 }) {
+  const { t, languageLabel } = useI18n();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
@@ -745,11 +775,11 @@ function TranslationCard({
       <div className="result-toolbar">
         <strong>{title}</strong>
         <span className="badge">
-          {languageName(result.detectedSourceLanguage)} - {Math.round(result.confidence * 100)}%
+          {languageLabel(result.detectedSourceLanguage)} - {Math.round(result.confidence * 100)}%
         </span>
       </div>
 
-      <div className="options" aria-label="Translation options">
+      <div className="options" aria-label={t("translator.translationOptions")}>
         {result.translations.map((option, index) => {
           const copyKey = `${copyScope}-${index}`;
 
@@ -777,7 +807,7 @@ function TranslationCard({
               </div>
               <div className="option-actions">
                 <button type="button" className="copy-button" onClick={() => onCopy(option, copyKey)}>
-                  {copiedKey === copyKey ? "Copied" : "Copy"}
+                  {copiedKey === copyKey ? t("common.copied") : t("common.copy")}
                 </button>
                 {onSpeak ? (
                   <button
@@ -785,7 +815,7 @@ function TranslationCard({
                     className={speakingKey === copyKey ? "copy-button speak-button speaking" : "copy-button speak-button"}
                     onClick={() => onSpeak(option, copyKey, targetLang)}
                   >
-                    {speakingKey === copyKey ? "Stop" : "Speak"}
+                    {speakingKey === copyKey ? t("common.stop") : t("common.speak")}
                   </button>
                 ) : null}
               </div>
@@ -796,7 +826,7 @@ function TranslationCard({
 
       {keyWords.length ? (
         <details className="keywords">
-          <summary>Key Words ({keyWords.length})</summary>
+          <summary>{t("translator.keyWords", { count: keyWords.length })}</summary>
           <div className="keyword-list">
             {keyWords.map((word, index) => (
               <div className="keyword-row" key={`${word.source}-${word.target}-${index}`}>
