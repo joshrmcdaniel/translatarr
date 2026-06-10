@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "../lib/i18n/i18n-context";
-import { detectBrowserLocale, type Locale } from "../lib/i18n/messages";
+import { localeNativeNames } from "../lib/i18n/language-names";
+import { detectBrowserLocale, locales, type Locale } from "../lib/i18n/messages";
 import type { LLMProvider, SettingsPayload, SpeechEngine } from "../lib/settings-types";
 import { UserAdmin } from "./user-admin";
 
@@ -233,11 +234,11 @@ export function SettingsDialog({
                     }
                   >
                     <option value="">{t("settings.interfaceLanguageDefault")}</option>
-                    <option value="en">English</option>
-                    <option value="zh">中文</option>
-                    <option value="yue">廣東話</option>
-                    <option value="ja">日本語</option>
-                    <option value="ko">한국어</option>
+                    {locales.map((localeOption) => (
+                      <option key={localeOption} value={localeOption}>
+                        {localeNativeNames[localeOption]}
+                      </option>
+                    ))}
                   </select>
                 </label>
 

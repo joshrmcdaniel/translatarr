@@ -23,6 +23,7 @@ const localeMap: Record<LanguageCode, LocaleInfo> = {
   fr: { bcp47: "fr-FR" },
   de: { bcp47: "de-DE" },
   el: { bcp47: "el-GR" },
+  he: { bcp47: "he-IL" },
   it: { bcp47: "it-IT" },
   ja: { bcp47: "ja-JP" },
   ko: { bcp47: "ko-KR" },

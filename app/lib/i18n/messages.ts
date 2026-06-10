@@ -6,13 +6,21 @@
  * `user_settings`) -> browser language -> English.
  */
 
+import { messagesAr } from "./messages-ar";
+import { messagesDe } from "./messages-de";
+import { messagesEl } from "./messages-el";
 import { messagesEn, type MessageKey } from "./messages-en";
+import { messagesEs } from "./messages-es";
+import { messagesFr } from "./messages-fr";
+import { messagesIt } from "./messages-it";
 import { messagesJa } from "./messages-ja";
 import { messagesKo } from "./messages-ko";
+import { messagesRu } from "./messages-ru";
+import { messagesVi } from "./messages-vi";
 import { messagesYue } from "./messages-yue";
 import { messagesZh } from "./messages-zh";
 
-export const locales = ["en", "zh", "yue", "ja", "ko"] as const;
+export const locales = ["en", "ar", "de", "el", "es", "fr", "it", "ja", "ko", "ru", "vi", "yue", "zh"] as const;
 
 export type Locale = (typeof locales)[number];
 
@@ -20,10 +28,18 @@ export type { MessageKey };
 
 export const catalogs: Record<Locale, Record<MessageKey, string>> = {
   en: messagesEn,
-  zh: messagesZh,
-  yue: messagesYue,
+  ar: messagesAr,
+  de: messagesDe,
+  el: messagesEl,
+  es: messagesEs,
+  fr: messagesFr,
+  it: messagesIt,
   ja: messagesJa,
   ko: messagesKo,
+  ru: messagesRu,
+  vi: messagesVi,
+  yue: messagesYue,
+  zh: messagesZh,
 };
 
 export function resolveLocale(value: string | null | undefined): Locale | null {
@@ -41,19 +57,11 @@ export function detectBrowserLocale(): Locale {
     return "yue";
   }
 
-  if (language.startsWith("ja")) {
-    return "ja";
-  }
-
-  if (language.startsWith("ko")) {
-    return "ko";
-  }
-
   if (language.startsWith("zh")) {
     return "zh";
   }
 
-  return "en";
+  return resolveLocale(language.split("-")[0]) ?? "en";
 }
 
 export function formatMessage(template: string, params: Record<string, string | number>): string {

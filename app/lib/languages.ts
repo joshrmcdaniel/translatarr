@@ -12,6 +12,7 @@ export const languages = [
   { code: "fr", name: "French", needsRomanization: false },
   { code: "de", name: "German", needsRomanization: false },
   { code: "el", name: "Greek", needsRomanization: true },
+  { code: "he", name: "Hebrew", needsRomanization: true },
   { code: "it", name: "Italian", needsRomanization: false },
   { code: "ja", name: "Japanese", needsRomanization: true },
   { code: "ko", name: "Korean", needsRomanization: true },
