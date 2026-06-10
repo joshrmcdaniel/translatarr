@@ -9,12 +9,16 @@ export const defaultPromptTemplate = `You are a translation engine. Translate be
 
 const responseFormatClause = `Respond with ONLY valid JSON matching this schema: {"detectedSourceLanguage":"string","confidence":0.0,"translations":[{"text":"string","romanization":null,"sourceEquivalent":"string","register":"string","keyWords":[{"source":"string","target":"string","romanization":null}]}]}. Do not include markdown, code fences, or commentary.`;
 
+const romanizationClause = ` Whenever a translation option, sourceEquivalent, or keyWords target is written in a non-Latin script, romanization is REQUIRED and must never be null — provide it on every such translation option and keyWords entry, using that language's standard romanization scheme.`;
+
+const registerClause = ` For each translation option, set register to the formality or speech level of that option's phrasing in its own language: choose the closest of formal, polite, neutral, casual, intimate, or vulgar/slang, and when the language has a named politeness or speech-level system, append the native term in parentheses. register describes how the translation is phrased, never whether its content is appropriate.`;
+
 function buildSystemPrompt(sourceLang: string, targetLang: string, promptTemplate: string | null) {
   const instructions = (promptTemplate ?? defaultPromptTemplate)
     .replaceAll("{{source}}", `${languageName(sourceLang)} (${sourceLang})`)
     .replaceAll("{{target}}", `${languageName(targetLang)} (${targetLang})`);
 
-  return `${instructions} ${responseFormatClause}`;
+  return `${instructions}${romanizationClause}${registerClause} ${responseFormatClause}`;
 }
 
 function stripCodeFences(raw: string) {

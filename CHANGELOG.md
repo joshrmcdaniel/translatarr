@@ -7,6 +7,8 @@
 - **Whole-page scrolling on mobile.** The shell was sized with `100vh`, which on mobile browsers includes the space behind the collapsible URL bar, so the document overflowed and the entire page scrolled. The shell now uses `100dvh` (with a `vh` fallback), only the timeline scrolls, and `overscroll-behavior` stops rubber-band scrolling on the chrome.
 - **Cramped mobile layout.** The sidebar previously stacked above the conversation at up to 240 px tall, leaving almost no room for the timeline. Spacing, control heights, and the composer are also tightened on small screens so the conversation gets the majority of the viewport.
 - Settings dialog now caps its height against the dynamic viewport (`100dvh`), so it can't extend behind the URL bar.
+- **Missing romanization.** Some non-Latin-script translations (notably Korean) came back without romanization. The server now appends a hard requirement to every system prompt — custom templates included: any translation option, back-translation, or glossary entry in a non-Latin script must carry romanization in that language's standard scheme.
+- **Undefined register labels.** The `register` field was never defined in the prompt, so labels were model improvisation. It is now defined language-agnostically as the formality/speech level of each option's phrasing (formal, polite, neutral, casual, intimate, or vulgar/slang, plus the language's native speech-level term where one exists) — and explicitly not a content-appropriateness rating.
 
 ### Added
 
