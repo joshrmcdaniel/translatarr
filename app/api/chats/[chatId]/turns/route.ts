@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSessionUser } from "../../../../lib/auth";
 import { addTurn, getChat } from "../../../../lib/chat-store";
 import { isSupportedLanguage } from "../../../../lib/languages";
+import { translationResponseSchema, type TranslationResponse } from "../../../../lib/translation-schema";
 import { MalformedLLMResponseError, translateText } from "../../../../lib/translation-service";
 
 type RouteContext = {
@@ -13,6 +14,8 @@ const createTurnSchema = z.object({
   text: z.string().trim().min(1).max(12000),
   sourceLang: z.string().min(2),
   targetLang: z.string().min(2),
+  // Client-supplied live-preview result for this exact text; reused to skip a duplicate LLM call.
+  result: z.unknown().optional(),
 });
 
 export async function POST(request: Request, context: RouteContext) {
@@ -39,9 +42,23 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });
   }
 
+  let precomputedResult: TranslationResponse | undefined;
+
+  if (body.result !== undefined) {
+    const parsed = translationResponseSchema.safeParse(body.result);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid precomputed translation result." }, { status: 400 });
+    }
+
+    precomputedResult = parsed.data;
+  }
+
+  const turn = { text: body.text, sourceLang: body.sourceLang, targetLang: body.targetLang };
+
   try {
-    const result = await translateText({ ...body, userId: user.id });
-    const chat = addTurn({ chatId, userId: user.id, result, ...body });
+    const result = precomputedResult ?? (await translateText({ ...turn, userId: user.id }));
+    const chat = addTurn({ chatId, userId: user.id, result, ...turn });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found." }, { status: 404 });

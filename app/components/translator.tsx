@@ -9,7 +9,7 @@ import { BrandSeal } from "./brand-seal";
 import { SettingsDialog } from "./settings-dialog";
 
 const MAX_CHARS = 12000;
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 1500;
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
@@ -19,7 +19,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [targetLang, setTargetLang] = useState("es");
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<ChatDetail | null>(null);
-  const [livePreview, setLivePreview] = useState(true);
+  const [livePreview, setLivePreview] = useState(false);
   const [previewResult, setPreviewResult] = useState<TranslationResponse | null>(null);
   const [previewStatus, setPreviewStatus] = useState<RequestState>("idle");
   const [sendStatus, setSendStatus] = useState<RequestState>("idle");
@@ -31,6 +31,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [editingTitle, setEditingTitle] = useState(false);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
+  const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string } | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
   const trimmedText = text.trim();
@@ -86,6 +87,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
           return;
         }
 
+        previewFor.current = { text: trimmedText, sourceLang, targetLang };
         setPreviewResult(result);
         setPreviewStatus("success");
       } catch (translationError) {
@@ -182,8 +184,16 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     setError("");
 
     try {
+      const reusablePreview =
+        previewResult &&
+        previewFor.current?.text === submittedText &&
+        previewFor.current.sourceLang === sourceLang &&
+        previewFor.current.targetLang === targetLang
+          ? previewResult
+          : null;
+
       const chat = activeChat ?? (await createChat(sourceLang, targetLang));
-      const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang);
+      const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview);
 
       setActiveChat(updatedChat);
       setChats((current) => upsertSummary(current, toSummary(updatedChat)));
@@ -711,11 +721,17 @@ async function deleteChat(chatId: string) {
   }
 }
 
-async function addChatTurn(chatId: string, text: string, sourceLang: string, targetLang: string) {
+async function addChatTurn(
+  chatId: string,
+  text: string,
+  sourceLang: string,
+  targetLang: string,
+  precomputedResult: TranslationResponse | null = null,
+) {
   const response = await fetch(`/api/chats/${chatId}/turns`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, sourceLang, targetLang }),
+    body: JSON.stringify({ text, sourceLang, targetLang, ...(precomputedResult ? { result: precomputedResult } : {}) }),
   });
 
   const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
