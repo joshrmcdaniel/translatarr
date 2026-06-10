@@ -6,12 +6,19 @@ export type Language = {
 
 export const languages = [
   { code: "en", name: "English", needsRomanization: false },
-  { code: "es", name: "Spanish", needsRomanization: false },
+  { code: "ar", name: "Arabic", needsRomanization: true },
+  { code: "yue", name: "Cantonese", needsRomanization: true },
+  { code: "zh", name: "Chinese (Mandarin)", needsRomanization: true },
   { code: "fr", name: "French", needsRomanization: false },
   { code: "de", name: "German", needsRomanization: false },
-  { code: "zh", name: "Chinese", needsRomanization: true },
+  { code: "el", name: "Greek", needsRomanization: true },
+  { code: "it", name: "Italian", needsRomanization: false },
   { code: "ja", name: "Japanese", needsRomanization: true },
-  { code: "ar", name: "Arabic", needsRomanization: true },
+  { code: "ko", name: "Korean", needsRomanization: true },
+  { code: "ru", name: "Russian", needsRomanization: true },
+  { code: "es", name: "Spanish", needsRomanization: false },
+  { code: "uk", name: "Ukrainian", needsRomanization: true },
+  { code: "vi", name: "Vietnamese", needsRomanization: false },
 ] satisfies Language[];
 
 export const autoDetectLanguage = {

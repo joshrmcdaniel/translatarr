@@ -549,11 +549,13 @@ function TranslationCard({
   onCopy: (option: TranslationOption, key: string) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const selected = result.translations[selectedIndex];
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [result]);
+
+  const selectedKeyWords = result.translations[selectedIndex]?.keyWords ?? [];
+  const keyWords = selectedKeyWords.length ? selectedKeyWords : result.keyWords;
 
   return (
     <article className="assistant-card">
@@ -564,25 +566,32 @@ function TranslationCard({
         </span>
       </div>
 
-      {selected ? (
-        <div className="primary-translation">
-          <p>{selected.text}</p>
-          {selected.romanization ? <span>{selected.romanization}</span> : null}
-        </div>
-      ) : null}
-
       <div className="options" aria-label="Translation options">
         {result.translations.map((option, index) => {
           const copyKey = `${copyScope}-${index}`;
 
+          if (index !== selectedIndex) {
+            return (
+              <button
+                key={`${option.text}-${index}`}
+                type="button"
+                className="option-row"
+                onClick={() => setSelectedIndex(index)}
+              >
+                <span className="option-row-text">{option.text}</span>
+                {option.register ? <span className="register">{option.register}</span> : null}
+              </button>
+            );
+          }
+
           return (
-            <article key={`${option.text}-${index}`} className={index === selectedIndex ? "option selected" : "option"}>
-              <button type="button" className="option-body" onClick={() => setSelectedIndex(index)}>
-                <span className="option-text">{option.text}</span>
+            <article key={`${option.text}-${index}`} className="option-featured">
+              <div className="option-featured-body">
+                <p className="featured-text">{option.text}</p>
                 {option.romanization ? <span className="romanization">{option.romanization}</span> : null}
                 <span className="source-equivalent">({option.sourceEquivalent})</span>
                 {option.register ? <span className="register">{option.register}</span> : null}
-              </button>
+              </div>
               <button type="button" className="copy-button" onClick={() => onCopy(option, copyKey)}>
                 {copiedKey === copyKey ? "Copied" : "Copy"}
               </button>
@@ -591,11 +600,11 @@ function TranslationCard({
         })}
       </div>
 
-      <div className="keywords">
-        <h2>Key Words</h2>
-        {result.keyWords.length ? (
+      {keyWords.length ? (
+        <details className="keywords">
+          <summary>Key Words ({keyWords.length})</summary>
           <div className="keyword-list">
-            {result.keyWords.map((word, index) => (
+            {keyWords.map((word, index) => (
               <div className="keyword-row" key={`${word.source}-${word.target}-${index}`}>
                 <span>{word.source}</span>
                 <strong>{word.target}</strong>
@@ -603,10 +612,8 @@ function TranslationCard({
               </div>
             ))}
           </div>
-        ) : (
-          <p className="subtle">No key words returned.</p>
-        )}
-      </div>
+        </details>
+      ) : null}
     </article>
   );
 }

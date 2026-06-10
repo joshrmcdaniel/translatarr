@@ -1,0 +1,17 @@
+node_modules
+.next
+data
+*.sqlite
+*.sqlite-*
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+LICENSE
+CLAUDE.md
+tsconfig.tsbuildinfo
+*.log
+.translatarr-shot.mjs
+.claude
+.github

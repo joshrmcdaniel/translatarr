@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 
@@ -9,6 +9,10 @@ const fontMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
 export const metadata: Metadata = {
   title: "Translatarr",
   description: "Provider-agnostic LLM translation app",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b100f",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
