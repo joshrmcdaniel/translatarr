@@ -21,6 +21,15 @@ bun run lint           # next lint
 
 There is no test suite. Use `bun run typecheck` to validate changes.
 
+```bash
+docker build -t translatarr .                                  # multi-stage: bun installs/builds, node:22-slim runs the standalone output
+docker run -d -p 3000:3000 -v translatarr-data:/app/data translatarr
+```
+
+`next.config.ts` sets `output: "standalone"` for the Docker runtime. SQLite lives in `/app/data` (mount a volume); LLM env vars are optional since config can be done in-app.
+
+CI: `.github/workflows/docker.yml` builds the image (linux/amd64 + linux/arm64 via QEMU) and pushes it to GHCR as `ghcr.io/<owner>/<repo>` on pushes to `main` (tagged `latest`, `main`, `sha-…`) and on `v*` tags (semver tags). It authenticates with the workflow's own `GITHUB_TOKEN` — no secrets to configure.
+
 ## Multi-user & auth
 
 The app is multi-user with cookie-session auth and two roles (`admin`, `user`). First run shows a setup screen that creates the admin account (and adopts any pre-auth chats); afterwards admins create accounts via Settings → Users. Passwords are scrypt-hashed (`node:crypto`, no auth dependency); sessions are opaque tokens in the `sessions` table carried by an HTTP-only cookie (`translatarr_session`, 30-day TTL). `app/lib/auth.ts#getSessionUser()` is the single auth entry point — every API route calls it and returns 401 when unauthenticated (admin-only routes additionally 403). Chats are scoped by `chats.user_id`; cross-user access reads as 404. Deleting a user cascades to their sessions, settings, and chats.
@@ -43,7 +52,7 @@ Request flow: `Translator` (client component) → API route → `translation-ser
 
 ### Layers (`app/lib/`)
 
-- **`translation-schema.ts`** — the contract for the whole app. The Zod `translationResponseSchema` (detected language, confidence, 2–3 ranked translation options, key-word list) defines the JSON the LLM must return and the shape stored in the DB. Changing this schema ripples to the system prompt, the stored `result_json`, and the UI.
+- **`translation-schema.ts`** — the contract for the whole app. The Zod `translationResponseSchema` (detected language, confidence, 2–3 ranked translation options, each carrying its own complete `keyWords` glossary) defines the JSON the LLM must return and the shape stored in the DB. Top-level `keyWords` is a legacy field kept (with `.default([])`) so pre-existing stored turns still parse; the UI falls back to it when an option has no glossary. Changing this schema ripples to the system prompt, the stored `result_json`, and the UI.
 - **`llm-client.ts`** — the `LLMClient` interface (`complete(systemPrompt, userText)`) wraps providers behind a single abstraction. `createLLMClient(settings)` takes a `ResolvedLLMSettings`; add new providers by implementing the interface and wiring them into its `switch`, replacing the relevant `StubClient`. `OpenAICompatibleClient` uses raw fetch with `response_format: json_object`; `AnthropicClient` uses the official `@anthropic-ai/sdk` with structured outputs (`messages.parse` + `zodOutputFormat(translationResponseSchema)`), so its responses are schema-guaranteed JSON. Because of that helper, `translation-schema.ts` imports from `zod/v4` (the v4 API shipped inside zod 3.25+); the API routes still use classic `zod`.
 - **`db.ts`** — shared lazy `better-sqlite3` connection and all migrations (chats, chat_turns, app_settings, users, sessions, user_settings; conditional `ALTER TABLE` adds `chats.user_id`).
 - **`auth.ts` / `user-store.ts`** — scrypt password hashing, cookie sessions (`getSessionUser`), and user CRUD (`claimOrphanChats` adopts pre-auth chats during setup).
@@ -72,6 +81,8 @@ All routes validate input with Zod and share an error convention: `400` invalid 
 Design language ("documents on a translator's desk"): dark ink-green chrome with warm paper cards for translated content and the composer; vermilion accent, jade/gold secondary. Fonts via `next/font` in `layout.tsx`: Bricolage Grotesque (UI, `--font-ui`), Newsreader (translated text, `--font-serif`), JetBrains Mono (metadata stamps, `--font-mono`). All tokens are CSS variables in `globals.css`; keep new UI on those tokens.
 
 `app/components/auth-gate.tsx` wraps everything: it checks the session and renders the login form, the first-run admin-setup form, or the app. `app/components/translator.tsx` is a single large `"use client"` component holding all UI state; it receives the session user (for the sidebar user badge / logout and to show admin settings sections). `settings-dialog.tsx` has per-user preference fields plus admin-only instance and user-management (`user-admin.tsx`) sections. It debounces a live-preview translation (`DEBOUNCE_MS`, against `/api/translate`) while the user types, and "sending" persists a turn to the active chat. `app/page.tsx` and `app/layout.tsx` are thin shells. `MAX_CHARS` (12000) is duplicated between the client and the route schemas — keep them in sync.
+
+The app is an installable PWA: `app/manifest.ts` (served at `/manifest.webmanifest`, `display: standalone`, ink theme color) references PNG icons in `public/` rendered from the 訳 seal (`icon-192`/`icon-512` plus a full-bleed `icon-maskable-512` for Android adaptive masks); `app/apple-icon.png` is auto-linked by Next for iOS. Standalone install requires HTTPS in practice (expects a reverse proxy in front); there is no service worker / offline support. The Dockerfile copies `public/` explicitly because Next standalone output does not include it.
 
 ## Conventions
 
