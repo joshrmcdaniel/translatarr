@@ -88,7 +88,8 @@ The system prompt is also editable (per user or instance-wide) and supports `{{s
 
 ## Usage
 
-- Pick a source and target language (source can be *Auto-detect*) and start typing — a live preview translates as you pause.
+- Pick a source and target language (source can be *Auto-detect*), type, and send.
+- Optionally enable **Live preview** (top bar) to translate as you type, after a short pause. Sending reuses the preview when the text hasn't changed, so it doesn't cost a second LLM call.
 - Press **Enter** (or Send) to save the turn to the current chat.
 - Translation direction is automatic within the pair: type in either language and it translates to the other one.
 - Click an alternative option on a translation card to feature it; the key-word glossary follows the selected option.
