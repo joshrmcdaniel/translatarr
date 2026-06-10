@@ -27,6 +27,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const cancelTitleEdit = useRef(false);
@@ -138,6 +139,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function selectChat(chatId: string) {
+    setSidebarOpen(false);
+
     if (activeChat?.id === chatId) {
       return;
     }
@@ -159,6 +162,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function createNewChat() {
+    setSidebarOpen(false);
     setLoadStatus("loading");
     setError("");
     setPreviewResult(null);
@@ -298,7 +302,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   return (
     <main className="app-shell">
       <section className="chat-workspace with-sidebar" aria-label="Translation chats">
-        <aside className="chat-sidebar" aria-label="Chats">
+        {sidebarOpen ? (
+          <div className="sidebar-backdrop" aria-hidden="true" onClick={() => setSidebarOpen(false)} />
+        ) : null}
+        <aside className={sidebarOpen ? "chat-sidebar open" : "chat-sidebar"} aria-label="Chats">
           <div className="sidebar-header">
             <div className="brand">
               <BrandSeal />
@@ -349,6 +356,17 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
         <div className="chat-main">
           <header className="control-bar">
+            <button
+              type="button"
+              className="ghost-button menu-button"
+              aria-label="Open chats"
+              aria-expanded={sidebarOpen}
+              onClick={() => setSidebarOpen(true)}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
             {activeChat ? (
               <div className="chat-title-row">
                 {editingTitle ? (
