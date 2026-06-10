@@ -224,6 +224,7 @@ button:disabled {
 .chat-list {
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -334,6 +335,11 @@ button:disabled {
 .menu-button,
 .sidebar-backdrop {
   display: none;
+}
+
+/* groups hamburger + title; inert on desktop, a flex row on mobile */
+.bar-top {
+  display: contents;
 }
 
 /* ---------- main column ---------- */
@@ -542,6 +548,7 @@ select:focus {
 .timeline {
   min-width: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: clamp(16px, 3vw, 30px);
   display: flex;
   flex-direction: column;
@@ -992,6 +999,7 @@ select:focus {
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--ink-3);
   border-radius: 14px;
   background: var(--ink-1);
@@ -1241,6 +1249,22 @@ select:focus {
 /* ---------- responsive ---------- */
 
 @media (max-width: 840px) {
+  /*
+   * Hard scroll lock. Mobile browsers (iOS standalone PWAs especially)
+   * rubber-band the document even when nothing overflows; pinning the body
+   * is the only reliable way to stop the page itself from moving.
+   */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+  }
+
   .chat-workspace {
     min-height: 0;
   }
@@ -1286,20 +1310,24 @@ select:focus {
     gap: 10px;
   }
 
+  .bar-top {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .menu-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    grid-row: 1;
-    grid-column: 1;
-    justify-self: start;
+    flex-shrink: 0;
     padding: 0 10px;
   }
 
   .chat-title-row {
-    grid-row: 1;
-    grid-column: 2 / -1;
-    align-self: center;
+    flex: 1 1 auto;
   }
 
   .language-controls {

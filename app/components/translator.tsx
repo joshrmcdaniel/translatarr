@@ -356,63 +356,65 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
         <div className="chat-main">
           <header className="control-bar">
-            <button
-              type="button"
-              className="ghost-button menu-button"
-              aria-label="Open chats"
-              aria-expanded={sidebarOpen}
-              onClick={() => setSidebarOpen(true)}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </button>
-            {activeChat ? (
-              <div className="chat-title-row">
-                {editingTitle ? (
-                  <input
-                    className="chat-title-input"
-                    value={titleDraft}
-                    maxLength={80}
-                    autoFocus
-                    aria-label="Chat title"
-                    placeholder="Chat title"
-                    onChange={(event) => setTitleDraft(event.target.value)}
-                    onBlur={() => {
-                      if (cancelTitleEdit.current) {
-                        cancelTitleEdit.current = false;
-                        return;
-                      }
-                      void commitChatTitle();
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        event.currentTarget.blur();
-                      } else if (event.key === "Escape") {
-                        cancelTitleEdit.current = true;
-                        setTitleDraft(activeChat.title);
-                        setEditingTitle(false);
-                      }
-                    }}
-                  />
-                ) : (
-                  <>
-                    <span className="chat-title">{activeChat.title}</span>
-                    <button
-                      type="button"
-                      className="ghost-button rename-button"
-                      onClick={() => {
-                        setTitleDraft(activeChat.title);
-                        setEditingTitle(true);
+            <div className="bar-top">
+              <button
+                type="button"
+                className="ghost-button menu-button"
+                aria-label="Open chats"
+                aria-expanded={sidebarOpen}
+                onClick={() => setSidebarOpen(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                  <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+              {activeChat ? (
+                <div className="chat-title-row">
+                  {editingTitle ? (
+                    <input
+                      className="chat-title-input"
+                      value={titleDraft}
+                      maxLength={80}
+                      autoFocus
+                      aria-label="Chat title"
+                      placeholder="Chat title"
+                      onChange={(event) => setTitleDraft(event.target.value)}
+                      onBlur={() => {
+                        if (cancelTitleEdit.current) {
+                          cancelTitleEdit.current = false;
+                          return;
+                        }
+                        void commitChatTitle();
                       }}
-                    >
-                      Rename
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : null}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          event.currentTarget.blur();
+                        } else if (event.key === "Escape") {
+                          cancelTitleEdit.current = true;
+                          setTitleDraft(activeChat.title);
+                          setEditingTitle(false);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <span className="chat-title">{activeChat.title}</span>
+                      <button
+                        type="button"
+                        className="ghost-button rename-button"
+                        onClick={() => {
+                          setTitleDraft(activeChat.title);
+                          setEditingTitle(true);
+                        }}
+                      >
+                        Rename
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
             <div className="language-controls">
               <label>
