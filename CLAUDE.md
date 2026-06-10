@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Translatarr is a provider-agnostic LLM translation app built on Next.js 15 (App Router) and React 19. It produces structured translations (multiple ranked options, key-word glossary, romanization, and a back-translation) and persists translation sessions ("chats") to a local SQLite database.
 
-Note: `README.md` is stale `bun init` boilerplate and does not describe this project. The repo runs as a Next.js app, not via `bun run index.ts`.
+`README.md` is the user-facing install/usage doc (Docker via GHCR, configuration table, screenshots in `docs/`); this file is the contributor-facing map. Keep both in sync when commands or env vars change.
 
 ## Commands
 
@@ -40,7 +40,7 @@ LLM settings resolve per value as: **user preference** (model, system prompt —
 
 - `LLM_API_KEY` — an API key is required (env or Settings); `createLLMClient()` throws without one, so every translate request 502s until it is set.
 - `LLM_PROVIDER` — `openai-compatible` (default), `anthropic`, or `custom`. `openai-compatible` and `anthropic` are implemented; `custom` is a `StubClient` that throws on use.
-- `LLM_MODEL` — provider-dependent default: `gpt-4.1-mini` (openai-compatible) or `claude-opus-4-8` (anthropic).
+- `LLM_MODEL` — provider-dependent default: `gpt-5.4-mini` (openai-compatible) or `claude-haiku-4-5` (anthropic).
 - `LLM_BASE_URL` — provider-dependent default: `https://api.openai.com/v1` or `https://api.anthropic.com`.
 - `SQLITE_PATH` — overrides the default DB path (`data/translatarr.sqlite`); env-only.
 

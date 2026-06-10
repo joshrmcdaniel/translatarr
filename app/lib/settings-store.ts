@@ -25,9 +25,9 @@ type SettingRow = {
 const defaultProvider: LLMProvider = "openai-compatible";
 
 const providerDefaults: Record<LLMProvider, { model: string; baseUrl: string }> = {
-  "openai-compatible": { model: "gpt-4.1-mini", baseUrl: "https://api.openai.com/v1" },
-  anthropic: { model: "claude-opus-4-8", baseUrl: "https://api.anthropic.com" },
-  custom: { model: "gpt-4.1-mini", baseUrl: "https://api.openai.com/v1" },
+  "openai-compatible": { model: "gpt-5.4-mini", baseUrl: "https://api.openai.com/v1" },
+  anthropic: { model: "claude-haiku-4-5", baseUrl: "https://api.anthropic.com" },
+  custom: { model: "gpt-5.4-mini", baseUrl: "https://api.openai.com/v1" },
 };
 
 function asProvider(value: string | undefined): LLMProvider | null {
