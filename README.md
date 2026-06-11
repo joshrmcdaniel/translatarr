@@ -8,7 +8,9 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 
 ## Features
 
-- **Ranked translation options** — every request returns 2–3 natural translations, best first, each tagged with its register (polite/neutral/casual)
+- **Ranked translation options** — every request returns 2–3 natural translations, best first, each tagged with its register (formal → vulgar/slang, with native politeness terms) and tone (playful, mocking, flirtatious, …)
+- **Context-aware** — within a chat, recent turns are sent along as context, so pronouns, word senses, names, and formality carry across messages ("She starts on Monday" knows who *she* is)
+- **Faithful by design** — translates slang, profanity, and sensitive text at full intensity and labels it, instead of softening or censoring it
 - **Back-translation** — each option includes a translation back into the source language so you can verify the meaning before you send it to someone
 - **Key-word glossary** — a per-option breakdown mapping each meaningful word or phrase of your input to its counterpart in the translation
 - **Romanization** — pinyin, romaji, etc. for non-Latin scripts, on both the translations and the glossary
@@ -89,7 +91,7 @@ Everything can be configured in-app, so environment variables are optional. When
 
 Settings resolve per value as: **user preference** → **instance setting (admin)** → **environment variable** → built-in default.
 
-The system prompt is also editable (per user or instance-wide) and supports `{{source}}`/`{{target}}` placeholders; the JSON output contract is appended server-side so responses always parse.
+The system prompt is also editable (per user or instance-wide) and supports `{{source}}`/`{{target}}` placeholders; the JSON output contract and input-handling rules are appended server-side so responses always parse.
 
 ![Settings dialog with per-user preferences and admin instance settings](docs/screenshot-settings.png)
 
@@ -97,9 +99,9 @@ The system prompt is also editable (per user or instance-wide) and supports `{{s
 
 - Pick a source and target language (source can be *Auto-detect*), type, and send.
 - Optionally enable **Live preview** (top bar) to translate as you type, after a short pause. Sending reuses the preview when the text hasn't changed, so it doesn't cost a second LLM call.
-- Press **Enter** (or Send) to save the turn to the current chat.
+- Press **Enter** (or the ↑ button in the composer) to save the turn to the current chat — the message appears immediately while the translation is in flight.
 - Translation direction is automatic within the pair: type in either language and it translates to the other one.
-- Click an alternative option on a translation card to feature it; the key-word glossary follows the selected option.
+- Click an alternative option on a translation card to feature it; the key-word glossary follows the selected option, and on saved turns the choice is remembered and used as conversation context for follow-up messages.
 - **Rename**/**Clear**/**Delete** manage the current chat from the top bar.
 
 ### Voice
