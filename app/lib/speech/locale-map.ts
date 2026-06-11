@@ -92,10 +92,14 @@ export function pickVoice(voices: SpeechSynthesisVoice[], code: string): SpeechS
   return candidates.find((voice) => voice.default) ?? candidates[0] ?? null;
 }
 
+const voicePollIntervalMs = 250;
+const voicePollTimeoutMs = 3000;
+
 /**
- * Resolves the synthesis voice list, waiting for `voiceschanged` when the
- * list is initially empty (iOS Safari populates it late) with a timeout
- * fallback so callers never hang.
+ * Resolves the synthesis voice list when it is initially empty. iOS Safari
+ * populates the list lazily and, in home-screen PWAs, often never fires
+ * `voiceschanged`, so this polls `getVoices()` (each call also nudges WebKit
+ * to load them) alongside the event, with a deadline so callers never hang.
  */
 export function getVoicesAsync(): Promise<SpeechSynthesisVoice[]> {
   const synth = window.speechSynthesis;
@@ -109,20 +113,23 @@ export function getVoicesAsync(): Promise<SpeechSynthesisVoice[]> {
     let settled = false;
 
     const finish = () => {
-      if (!settled) {
-        settled = true;
-        resolve(synth.getVoices());
+      if (settled) {
+        return;
       }
+
+      settled = true;
+      clearInterval(pollTimer);
+      clearTimeout(deadline);
+      synth.removeEventListener("voiceschanged", finish);
+      resolve(synth.getVoices());
     };
 
-    const timer = setTimeout(finish, 1500);
-    synth.addEventListener(
-      "voiceschanged",
-      () => {
-        clearTimeout(timer);
+    const pollTimer = setInterval(() => {
+      if (synth.getVoices().length > 0) {
         finish();
-      },
-      { once: true },
-    );
+      }
+    }, voicePollIntervalMs);
+    const deadline = setTimeout(finish, voicePollTimeoutMs);
+    synth.addEventListener("voiceschanged", finish);
   });
 }

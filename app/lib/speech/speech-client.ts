@@ -300,13 +300,26 @@ class ProviderRecognizer implements SpeechRecognizer {
 
 class BrowserSynthesizer implements SpeechSynthesizer {
   readonly kind = "browser";
+  private delegated = false;
+
+  /**
+   * `fallback` handles utterances for which no matching voice exists — iOS
+   * (especially in home-screen PWAs) otherwise ignores `utterance.lang` and
+   * reads the text with its default voice.
+   */
+  constructor(private readonly fallback: SpeechSynthesizer | null = null) {}
 
   async speak(text: string, langCode: string): Promise<void> {
     const voices = await getVoicesAsync();
+    const voice = pickVoice(voices, langCode);
+
+    if (!voice && this.fallback) {
+      this.delegated = true;
+      return this.fallback.speak(text, langCode);
+    }
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = toBcp47(langCode);
-
-    const voice = pickVoice(voices, langCode);
 
     if (voice) {
       utterance.voice = voice;
@@ -321,6 +334,11 @@ class BrowserSynthesizer implements SpeechSynthesizer {
   }
 
   stop(): void {
+    if (this.delegated) {
+      this.fallback?.stop();
+      return;
+    }
+
     window.speechSynthesis.cancel();
   }
 }
@@ -340,11 +358,17 @@ const silentWavDataUri = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA
 /**
  * Marks the shared audio element as user-activated by playing a silent clip
  * inside a user gesture, so later provider-TTS auto-speak survives autoplay
- * policies. Call from click handlers that may lead to asynchronous playback.
+ * policies. Also warms the synthesis voice list, which iOS only loads lazily
+ * and most reliably inside a user gesture. Call from click handlers that may
+ * lead to asynchronous playback.
  */
 export function unlockAudio(): void {
   if (typeof window === "undefined") {
     return;
+  }
+
+  if (isBrowserSynthesisSupported()) {
+    void getVoicesAsync();
   }
 
   const audio = getSharedAudio();
@@ -465,5 +489,9 @@ export function createSynthesizer(effective: SpeechEffectiveView): SpeechSynthes
     return null;
   }
 
-  return tts.engine === "browser" ? new BrowserSynthesizer() : new ProviderSynthesizer();
+  if (tts.engine === "provider") {
+    return new ProviderSynthesizer();
+  }
+
+  return new BrowserSynthesizer(effective.providerConfigured ? new ProviderSynthesizer() : null);
 }
