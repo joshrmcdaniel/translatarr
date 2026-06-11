@@ -102,6 +102,7 @@ The system prompt is also editable (per user or instance-wide) and supports `{{s
 - Press **Enter** (or the ↑ button in the composer) to save the turn to the current chat — the message appears immediately while the translation is in flight.
 - Translation direction is automatic within the pair: type in either language and it translates to the other one.
 - Click an alternative option on a translation card to feature it; the key-word glossary follows the selected option, and on saved turns the choice is remembered and used as conversation context for follow-up messages.
+- Every sent message has pencil (edit) and refresh (regenerate) buttons: edit the source text and it re-translates in place; regenerate re-rolls the translation for the same text.
 - **Rename**/**Clear**/**Delete** manage the current chat from the top bar.
 
 ### Voice
