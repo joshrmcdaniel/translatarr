@@ -847,6 +847,7 @@ function TranslationCard({
               >
                 <span className="option-row-text">{option.text}</span>
                 {option.register ? <span className="register">{option.register}</span> : null}
+                {option.tone && option.tone !== "neutral" ? <span className="register tone">{option.tone}</span> : null}
               </button>
             );
           }
@@ -858,6 +859,7 @@ function TranslationCard({
                 {option.romanization ? <span className="romanization">{option.romanization}</span> : null}
                 <span className="source-equivalent">({option.sourceEquivalent})</span>
                 {option.register ? <span className="register">{option.register}</span> : null}
+                {option.tone && option.tone !== "neutral" ? <span className="register tone">{option.tone}</span> : null}
               </div>
               <div className="option-actions">
                 <button type="button" className="copy-button" onClick={() => onCopy(option, copyKey)}>
