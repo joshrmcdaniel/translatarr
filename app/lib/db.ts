@@ -80,4 +80,10 @@ function migrate(database: Database.Database) {
       CREATE INDEX IF NOT EXISTS idx_chats_user ON chats(user_id);
     `);
   }
+
+  const turnColumns = database.prepare("PRAGMA table_info(chat_turns)").all() as Array<{ name: string }>;
+
+  if (!turnColumns.some((column) => column.name === "selected_option")) {
+    database.exec("ALTER TABLE chat_turns ADD COLUMN selected_option INTEGER NOT NULL DEFAULT 0");
+  }
 }

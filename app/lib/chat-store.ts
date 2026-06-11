@@ -19,6 +19,7 @@ type TurnRow = {
   source_lang: string;
   target_lang: string;
   result_json: string;
+  selected_option: number;
   created_at: string;
 };
 
@@ -41,6 +42,8 @@ function mapTurn(row: TurnRow): ChatTurn | null {
     return null;
   }
 
+  const optionCount = parsed.data.translations.length;
+
   return {
     id: row.id,
     chatId: row.chat_id,
@@ -48,6 +51,7 @@ function mapTurn(row: TurnRow): ChatTurn | null {
     sourceLang: row.source_lang,
     targetLang: row.target_lang,
     result: parsed.data,
+    selectedOption: row.selected_option >= 0 && row.selected_option < optionCount ? row.selected_option : 0,
     createdAt: row.created_at,
   };
 }
@@ -142,6 +146,21 @@ export function addTurn(input: {
   });
 
   transaction();
+  return getChat(input.chatId, input.userId);
+}
+
+export function setTurnSelection(input: { chatId: string; turnId: string; userId: string; selectedOption: number }) {
+  const chat = getChat(input.chatId, input.userId);
+  const turn = chat?.turns.find((entry) => entry.id === input.turnId);
+
+  if (!chat || !turn || turn.result.translations[input.selectedOption] === undefined) {
+    return null;
+  }
+
+  getDb()
+    .prepare("UPDATE chat_turns SET selected_option = ? WHERE id = ? AND chat_id = ?")
+    .run(input.selectedOption, input.turnId, input.chatId);
+
   return getChat(input.chatId, input.userId);
 }
 

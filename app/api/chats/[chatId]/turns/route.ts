@@ -4,7 +4,7 @@ import { getSessionUser } from "../../../../lib/auth";
 import { addTurn, getChat } from "../../../../lib/chat-store";
 import { isSupportedLanguage } from "../../../../lib/languages";
 import { translationResponseSchema, type TranslationResponse } from "../../../../lib/translation-schema";
-import { MalformedLLMResponseError, translateText } from "../../../../lib/translation-service";
+import { contextFromTurns, MalformedLLMResponseError, translateText } from "../../../../lib/translation-service";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
@@ -38,7 +38,9 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unsupported language selection." }, { status: 400 });
   }
 
-  if (!getChat(chatId, user.id)) {
+  const existingChat = getChat(chatId, user.id);
+
+  if (!existingChat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });
   }
 
@@ -57,7 +59,8 @@ export async function POST(request: Request, context: RouteContext) {
   const turn = { text: body.text, sourceLang: body.sourceLang, targetLang: body.targetLang };
 
   try {
-    const result = precomputedResult ?? (await translateText({ ...turn, userId: user.id }));
+    const result =
+      precomputedResult ?? (await translateText({ ...turn, userId: user.id, context: contextFromTurns(existingChat.turns) }));
     const chat = addTurn({ chatId, userId: user.id, result, ...turn });
 
     if (!chat) {

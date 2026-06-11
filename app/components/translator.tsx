@@ -117,7 +117,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setError("");
 
       try {
-        const result = await requestTranslation(trimmedText, sourceLang, targetLang, controller.signal);
+        const result = await requestTranslation(trimmedText, sourceLang, targetLang, controller.signal, activeChat?.id);
 
         if (previewRequestId.current !== currentRequest) {
           return;
@@ -141,7 +141,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [trimmedText, sourceLang, targetLang, livePreview, isTooLong, t]);
+  }, [trimmedText, sourceLang, targetLang, livePreview, isTooLong, activeChat?.id, t]);
 
   const detectedLabel = useMemo(() => {
     if (!latestResult) {
@@ -247,6 +247,26 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
     } finally {
       setPendingTurn(null);
+    }
+  }
+
+  async function selectTurnOption(turn: ChatTurn, optionIndex: number) {
+    if (optionIndex === turn.selectedOption || turn.result.translations[optionIndex] === undefined) {
+      return;
+    }
+
+    const applySelection = (index: number) => (current: ChatDetail | null) =>
+      current && current.id === turn.chatId
+        ? { ...current, turns: current.turns.map((entry) => (entry.id === turn.id ? { ...entry, selectedOption: index } : entry)) }
+        : current;
+
+    setActiveChat(applySelection(optionIndex));
+
+    try {
+      await updateTurnSelection(turn.chatId, turn.id, optionIndex);
+    } catch (selectionError) {
+      setActiveChat(applySelection(turn.selectedOption));
+      setError(selectionError instanceof Error ? selectionError.message : t("common.translationFailed"));
     }
   }
 
@@ -589,6 +609,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 onCopy={copyTranslation}
                 speakingKey={speechOutput.speakingId}
                 onSpeak={speechOutput.available ? speakTranslation : null}
+                onSelectOption={selectTurnOption}
               />
             ))}
 
@@ -761,12 +782,14 @@ function ConversationTurn({
   onCopy,
   speakingKey,
   onSpeak,
+  onSelectOption,
 }: {
   entry: ChatTurn;
   copiedKey: string | null;
   onCopy: (option: TranslationOption, key: string) => void;
   speakingKey: string | null;
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
+  onSelectOption: (turn: ChatTurn, index: number) => void;
 }) {
   const { t, languageLabel } = useI18n();
 
@@ -790,6 +813,8 @@ function ConversationTurn({
         targetLang={entry.targetLang}
         speakingKey={speakingKey}
         onSpeak={onSpeak}
+        selectedOption={entry.selectedOption}
+        onSelectOption={(index) => onSelectOption(entry, index)}
       />
     </section>
   );
@@ -804,6 +829,8 @@ function TranslationCard({
   targetLang,
   speakingKey,
   onSpeak,
+  selectedOption,
+  onSelectOption,
 }: {
   result: TranslationResponse;
   title: string;
@@ -813,14 +840,19 @@ function TranslationCard({
   targetLang: string;
   speakingKey: string | null;
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
+  /** Persisted choice; when provided the selection is controlled and onSelectOption reports clicks. */
+  selectedOption?: number;
+  onSelectOption?: (index: number) => void;
 }) {
   const { t, languageLabel } = useI18n();
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [localIndex, setLocalIndex] = useState(0);
 
   useEffect(() => {
-    setSelectedIndex(0);
+    setLocalIndex(0);
   }, [result]);
 
+  const selectedIndex = selectedOption ?? localIndex;
+  const setSelectedIndex = onSelectOption ?? setLocalIndex;
   const selectedKeyWords = result.translations[selectedIndex]?.keyWords ?? [];
   const keyWords = selectedKeyWords.length ? selectedKeyWords : result.keyWords;
 
@@ -1013,11 +1045,33 @@ async function addChatTurn(
   return payload.chat;
 }
 
-async function requestTranslation(text: string, sourceLang: string, targetLang: string, signal?: AbortSignal) {
+async function updateTurnSelection(chatId: string, turnId: string, selectedOption: number) {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ selectedOption }),
+  });
+
+  const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
+
+  if (!response.ok || !payload.chat) {
+    throw new Error(payload.error ?? "Could not save the selection.");
+  }
+
+  return payload.chat;
+}
+
+async function requestTranslation(
+  text: string,
+  sourceLang: string,
+  targetLang: string,
+  signal?: AbortSignal,
+  chatId?: string,
+) {
   const response = await fetch("/api/translate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, sourceLang, targetLang }),
+    body: JSON.stringify({ text, sourceLang, targetLang, chatId }),
     signal,
   });
 

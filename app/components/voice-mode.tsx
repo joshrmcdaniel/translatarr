@@ -198,21 +198,25 @@ export function VoiceMode({
                 <div className="voice-empty">{t("voice.emptyTranscript")}</div>
               ) : null}
 
-              {turns.map((turn) => (
-                <div key={turn.id} className="voice-turn">
-                  <span className="voice-turn-meta">
-                    {t("translator.languagePair", {
-                      source: languageLabel(turn.sourceLang),
-                      target: languageLabel(turn.targetLang),
-                    })}
-                  </span>
-                  <p className="voice-turn-source">{turn.text}</p>
-                  <p className="voice-turn-translation">{turn.result.translations[0]?.text}</p>
-                  {turn.result.translations[0]?.romanization ? (
-                    <span className="voice-turn-romanization">{turn.result.translations[0].romanization}</span>
-                  ) : null}
-                </div>
-              ))}
+              {turns.map((turn) => {
+                const chosenOption = turn.result.translations[turn.selectedOption] ?? turn.result.translations[0];
+
+                return (
+                  <div key={turn.id} className="voice-turn">
+                    <span className="voice-turn-meta">
+                      {t("translator.languagePair", {
+                        source: languageLabel(turn.sourceLang),
+                        target: languageLabel(turn.targetLang),
+                      })}
+                    </span>
+                    <p className="voice-turn-source">{turn.text}</p>
+                    <p className="voice-turn-translation">{chosenOption?.text}</p>
+                    {chosenOption?.romanization ? (
+                      <span className="voice-turn-romanization">{chosenOption.romanization}</span>
+                    ) : null}
+                  </div>
+                );
+              })}
 
               {speechInput.interim ? (
                 <div className="voice-turn interim">

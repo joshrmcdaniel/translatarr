@@ -16,6 +16,8 @@ export type ChatTurn = {
   sourceLang: string;
   targetLang: string;
   result: TranslationResponse;
+  /** Index into result.translations of the option the user chose (0 = top-ranked default). */
+  selectedOption: number;
   createdAt: string;
 };
 
