@@ -664,6 +664,7 @@ select:focus {
 .typing-dot {
   width: 8px;
   height: 8px;
+  margin-right: 26px;
   border-radius: 99px;
   background: var(--vermilion);
   box-shadow:
@@ -930,28 +931,40 @@ select:focus {
 
 .composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
+  gap: 8px;
 }
 
-/* writing the note — paper input */
+/* writing the note — paper input with the send seal inside */
+.composer-bubble {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  background: var(--paper);
+  padding: 0 8px 8px 0;
+  transition: box-shadow 140ms ease;
+}
+
+.composer-bubble:focus-within {
+  box-shadow: 0 0 0 3px rgb(255 92 61 / 25%);
+}
+
 .composer textarea {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   max-height: 180px;
   min-height: 76px;
   resize: vertical;
-  border: 1px solid var(--paper-line);
-  border-radius: 10px;
+  border: 0;
   outline: 0;
-  background: var(--paper);
+  background: transparent;
   color: var(--paper-ink);
   caret-color: var(--vermilion-deep);
   padding: 12px 14px;
   font-family: var(--font-serif-stack);
   font-size: 1.04rem;
   line-height: 1.55;
-  transition: box-shadow 140ms ease;
 }
 
 .composer textarea::placeholder {
@@ -959,14 +972,24 @@ select:focus {
   font-style: italic;
 }
 
-.composer textarea:focus {
-  box-shadow: 0 0 0 3px rgb(255 92 61 / 25%);
+.send-fab {
+  flex: none;
+  width: 38px;
+  min-height: 38px;
+  border-radius: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
 
 .composer-actions {
-  min-width: 150px;
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.composer-actions .counter {
+  margin-right: auto;
 }
 
 /* ---------- modal / settings ---------- */
@@ -1587,15 +1610,6 @@ select:focus {
     width: 100%;
   }
 
-  .composer {
-    grid-template-columns: 1fr;
-  }
-
-  .composer-actions {
-    min-width: 0;
-    grid-template-columns: auto 1fr 1fr 1fr;
-    align-items: center;
-  }
 }
 
 @media (max-width: 560px) {
@@ -1628,8 +1642,8 @@ select:focus {
     padding: 10px 12px;
   }
 
-  .composer {
-    gap: 8px;
+  .send-fab {
+    width: 34px;
   }
 
   .composer textarea {

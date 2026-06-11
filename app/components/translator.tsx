@@ -19,6 +19,12 @@ const DEBOUNCE_MS = 1500;
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
+type PendingTurn = {
+  text: string;
+  sourceLang: string;
+  targetLang: string;
+};
+
 export function Translator({ user, onLogout }: { user: User; onLogout: () => void }) {
   const { t, languageLabel, setLocale } = useI18n();
   const [text, setText] = useState("");
@@ -30,6 +36,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [previewResult, setPreviewResult] = useState<TranslationResponse | null>(null);
   const [previewStatus, setPreviewStatus] = useState<RequestState>("idle");
   const [sendStatus, setSendStatus] = useState<RequestState>("idle");
+  const [pendingTurn, setPendingTurn] = useState<PendingTurn | null>(null);
   const [loadStatus, setLoadStatus] = useState<RequestState>("loading");
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -82,7 +89,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       top: timelineRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [activeChat?.turns.length, previewResult, activeChat?.id]);
+  }, [activeChat?.turns.length, previewResult, pendingTurn, activeChat?.id]);
 
   useEffect(() => {
     if (!livePreview || !trimmedText) {
@@ -212,30 +219,34 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     }
 
     const submittedText = trimmedText;
+    const reusablePreview =
+      previewResult &&
+      previewFor.current?.text === submittedText &&
+      previewFor.current.sourceLang === sourceLang &&
+      previewFor.current.targetLang === targetLang
+        ? previewResult
+        : null;
+
     setSendStatus("loading");
     setError("");
+    setPendingTurn({ text: submittedText, sourceLang, targetLang });
+    setText("");
+    setPreviewResult(null);
+    setPreviewStatus("idle");
 
     try {
-      const reusablePreview =
-        previewResult &&
-        previewFor.current?.text === submittedText &&
-        previewFor.current.sourceLang === sourceLang &&
-        previewFor.current.targetLang === targetLang
-          ? previewResult
-          : null;
-
       const chat = activeChat ?? (await createChat(sourceLang, targetLang));
       const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview);
 
       setActiveChat(updatedChat);
       setChats((current) => upsertSummary(current, toSummary(updatedChat)));
-      setText("");
-      setPreviewResult(null);
-      setPreviewStatus("idle");
       setSendStatus("success");
     } catch (translationError) {
+      setText((current) => current || submittedText);
       setSendStatus("error");
       setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
+    } finally {
+      setPendingTurn(null);
     }
   }
 
@@ -562,11 +573,11 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <div className="conversation-empty">{t("translator.loadingChats")}</div>
             ) : null}
 
-            {loadStatus !== "loading" && !activeChat && !previewResult ? (
+            {loadStatus !== "loading" && !activeChat && !previewResult && !pendingTurn ? (
               <div className="conversation-empty">{t("translator.emptyNoChat")}</div>
             ) : null}
 
-            {activeChat?.turns.length === 0 && !previewResult && previewStatus !== "loading" ? (
+            {activeChat?.turns.length === 0 && !previewResult && previewStatus !== "loading" && !pendingTurn ? (
               <div className="conversation-empty">{t("translator.emptyChat")}</div>
             ) : null}
 
@@ -580,6 +591,23 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 onSpeak={speechOutput.available ? speakTranslation : null}
               />
             ))}
+
+            {pendingTurn ? (
+              <section className="conversation-turn">
+                <div className="user-message">
+                  <span className="message-meta">
+                    {t("translator.languagePair", {
+                      source: languageLabel(pendingTurn.sourceLang),
+                      target: languageLabel(pendingTurn.targetLang),
+                    })}
+                  </span>
+                  <p>{pendingTurn.text}</p>
+                </div>
+                <div className="assistant-message pending" role="status" aria-label={t("common.sending")}>
+                  <span className="typing-dot" />
+                </div>
+              </section>
+            ) : null}
 
             {previewStatus === "loading" ? (
               <div className="assistant-message pending">
@@ -611,20 +639,49 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
           <footer className="composer-shell">
             {error ? <div className="composer-error">{error}</div> : null}
             <div className="composer">
-              <textarea
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendMessage();
-                  }
-                }}
-                placeholder={t("translator.composerPlaceholder")}
-                aria-label={t("translator.sourceText")}
-                spellCheck="true"
-                rows={3}
-              />
+              <div className="composer-bubble">
+                <textarea
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendMessage();
+                    }
+                  }}
+                  placeholder={t("translator.composerPlaceholder")}
+                  aria-label={t("translator.sourceText")}
+                  spellCheck="true"
+                  rows={3}
+                />
+                <button
+                  type="button"
+                  className="send-button send-fab"
+                  onClick={sendMessage}
+                  disabled={!canSend}
+                  aria-label={sendStatus === "loading" ? t("common.sending") : t("common.send")}
+                  title={t("common.send")}
+                >
+                  {sendStatus === "loading" ? (
+                    "…"
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 19V5" />
+                      <path d="M5 12l7-7 7 7" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               <div className="composer-actions">
                 <span className={isTooLong ? "counter over" : "counter"}>
                   {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
@@ -645,9 +702,6 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 </button>
                 <button type="button" className="ghost-button" onClick={() => setText("")} disabled={!text}>
                   {t("common.clear")}
-                </button>
-                <button type="button" className="send-button" onClick={sendMessage} disabled={!canSend}>
-                  {sendStatus === "loading" ? t("common.sending") : t("common.send")}
                 </button>
               </div>
             </div>
