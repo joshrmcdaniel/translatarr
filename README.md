@@ -15,14 +15,15 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 - **Chats** — translation sessions are persisted to SQLite; live preview translates as you type, sending saves the turn
 - **Provider-agnostic** — works with any OpenAI-compatible API (OpenAI, OpenRouter, local llama.cpp/Ollama gateways, …) or the Anthropic API
 - **Multi-user** — admin and user roles; the admin configures the instance provider/credentials, each user can override the model and system prompt for themselves
+- **Localized UI** — the interface is available in several languages; defaults to your browser language, switchable per user in Settings
 - **PWA** — add it to your phone's home screen and it runs as a standalone app
-- **14 languages** — Arabic, Cantonese, Chinese (Mandarin), English, French, German, Greek, Italian, Japanese, Korean, Russian, Spanish, Ukrainian, Vietnamese — plus auto-detect
+- **29 languages** — Arabic, Cantonese, Chinese (Mandarin), Czech, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Khmer, Korean, Mongolian, Persian (Farsi), Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Thai, Ukrainian, Vietnamese — plus auto-detect
 
 ## Installation
 
 ### Docker (recommended)
 
-```bash
+```shell
 docker run -d \
   --name translatarr \
   -p 3000:3000 \
@@ -52,7 +53,7 @@ The SQLite database (users, chats, settings) lives in `/app/data` — keep it on
 
 Requires [bun](https://bun.sh) (and a C++ toolchain for `better-sqlite3` if no prebuilt binary matches your platform).
 
-```bash
+```shell
 git clone https://github.com/joshrmcdaniel/translatarr.git
 cd translatarr
 bun install
