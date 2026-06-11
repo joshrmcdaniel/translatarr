@@ -27,6 +27,8 @@ export const messagesRo: Record<MessageKey, string> = {
   "common.username": "Nume de utilizator",
   "common.password": "Parolă",
   "common.retry": "Reîncearcă",
+  "translator.editTurn": "Editează",
+  "translator.regenerate": "Regenerează",
   "common.translationFailed": "Traducerea a eșuat.",
 
   "auth.setupWelcome": "Bun venit! Creează contul de administrator pentru a finaliza configurarea acestei instanțe.",

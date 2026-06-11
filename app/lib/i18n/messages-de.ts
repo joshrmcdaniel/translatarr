@@ -27,6 +27,8 @@ export const messagesDe: Record<MessageKey, string> = {
   "common.username": "Benutzername",
   "common.password": "Passwort",
   "common.retry": "Erneut versuchen",
+  "translator.editTurn": "Bearbeiten",
+  "translator.regenerate": "Neu generieren",
   "common.translationFailed": "Übersetzung fehlgeschlagen.",
 
   "auth.setupWelcome": "Willkommen! Erstellen Sie das Administratorkonto, um die Einrichtung dieser Instanz abzuschließen.",

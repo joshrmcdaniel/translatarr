@@ -27,6 +27,8 @@ export const messagesRu: Record<MessageKey, string> = {
   "common.username": "Имя пользователя",
   "common.password": "Пароль",
   "common.retry": "Повторить",
+  "translator.editTurn": "Изменить",
+  "translator.regenerate": "Сгенерировать заново",
   "common.translationFailed": "Не удалось выполнить перевод.",
 
   "auth.setupWelcome": "Добро пожаловать! Создайте учётную запись администратора, чтобы завершить настройку этого экземпляра.",

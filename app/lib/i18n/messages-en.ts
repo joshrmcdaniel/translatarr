@@ -26,6 +26,8 @@ export const messagesEn = {
   "common.username": "Username",
   "common.password": "Password",
   "common.retry": "Retry",
+  "translator.editTurn": "Edit",
+  "translator.regenerate": "Regenerate",
   "common.translationFailed": "Translation failed.",
 
   "auth.setupWelcome": "Welcome! Create the admin account to finish setting up this instance.",

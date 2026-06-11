@@ -27,6 +27,8 @@ export const messagesId: Record<MessageKey, string> = {
   "common.username": "Nama pengguna",
   "common.password": "Kata sandi",
   "common.retry": "Coba lagi",
+  "translator.editTurn": "Edit",
+  "translator.regenerate": "Buat ulang",
   "common.translationFailed": "Terjemahan gagal.",
 
   "auth.setupWelcome": "Selamat datang! Buat akun admin untuk menyelesaikan penyiapan instans ini.",

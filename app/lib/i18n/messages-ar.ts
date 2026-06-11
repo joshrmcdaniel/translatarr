@@ -29,6 +29,8 @@ export const messagesAr: Record<MessageKey, string> = {
   "common.username": "اسم المستخدم",
   "common.password": "كلمة المرور",
   "common.retry": "إعادة المحاولة",
+  "translator.editTurn": "تعديل",
+  "translator.regenerate": "إعادة الإنشاء",
   "common.translationFailed": "فشلت الترجمة.",
 
   "auth.setupWelcome": "مرحبًا! أنشئ حساب المسؤول لإكمال إعداد هذا المثيل.",

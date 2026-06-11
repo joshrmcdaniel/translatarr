@@ -27,6 +27,8 @@ export const messagesJa: Record<MessageKey, string> = {
   "common.username": "ユーザー名",
   "common.password": "パスワード",
   "common.retry": "再試行",
+  "translator.editTurn": "編集",
+  "translator.regenerate": "再生成",
   "common.translationFailed": "翻訳に失敗しました。",
 
   "auth.setupWelcome": "ようこそ！管理者アカウントを作成して、このインスタンスのセットアップを完了してください。",

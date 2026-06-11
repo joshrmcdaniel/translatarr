@@ -149,6 +149,31 @@ export function addTurn(input: {
   return getChat(input.chatId, input.userId);
 }
 
+export function updateTurn(input: {
+  chatId: string;
+  turnId: string;
+  userId: string;
+  text: string;
+  result: TranslationResponse;
+}) {
+  const database = getDb();
+  const chat = getChat(input.chatId, input.userId);
+
+  if (!chat || !chat.turns.some((turn) => turn.id === input.turnId)) {
+    return null;
+  }
+
+  database.transaction(() => {
+    database
+      .prepare("UPDATE chat_turns SET text = ?, result_json = ?, selected_option = 0 WHERE id = ? AND chat_id = ?")
+      .run(input.text, JSON.stringify(input.result), input.turnId, input.chatId);
+
+    database.prepare("UPDATE chats SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(input.chatId);
+  })();
+
+  return getChat(input.chatId, input.userId);
+}
+
 export function setTurnSelection(input: { chatId: string; turnId: string; userId: string; selectedOption: number }) {
   const chat = getChat(input.chatId, input.userId);
   const turn = chat?.turns.find((entry) => entry.id === input.turnId);

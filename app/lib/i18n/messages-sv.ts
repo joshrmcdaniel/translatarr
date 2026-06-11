@@ -27,6 +27,8 @@ export const messagesSv: Record<MessageKey, string> = {
   "common.username": "Användarnamn",
   "common.password": "Lösenord",
   "common.retry": "Försök igen",
+  "translator.editTurn": "Redigera",
+  "translator.regenerate": "Generera om",
   "common.translationFailed": "Översättningen misslyckades.",
 
   "auth.setupWelcome": "Välkommen! Skapa administratörskontot för att slutföra konfigurationen av den här instansen.",

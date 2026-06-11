@@ -8,7 +8,7 @@ import { autoDetectLanguage, languages } from "../lib/languages";
 import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
-import type { TranslationOption, TranslationResponse } from "../lib/translation-schema";
+import { translationOutputLang, type TranslationOption, type TranslationResponse } from "../lib/translation-schema";
 import type { User } from "../lib/user-store";
 import { BrandSeal } from "./brand-seal";
 import { SettingsDialog } from "./settings-dialog";
@@ -37,6 +37,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [previewStatus, setPreviewStatus] = useState<RequestState>("idle");
   const [sendStatus, setSendStatus] = useState<RequestState>("idle");
   const [pendingTurn, setPendingTurn] = useState<PendingTurn | null>(null);
+  const [regeneratingTurnId, setRegeneratingTurnId] = useState<string | null>(null);
   const [loadStatus, setLoadStatus] = useState<RequestState>("loading");
   const [error, setError] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -247,6 +248,25 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
     } finally {
       setPendingTurn(null);
+    }
+  }
+
+  async function retranslateTurn(turn: ChatTurn, text?: string) {
+    if (regeneratingTurnId) {
+      return;
+    }
+
+    setRegeneratingTurnId(turn.id);
+    setError("");
+
+    try {
+      const chat = await requestTurnRetranslate(turn.chatId, turn.id, text);
+      setActiveChat(chat);
+      setChats((current) => upsertSummary(current, toSummary(chat)));
+    } catch (retranslateError) {
+      setError(retranslateError instanceof Error ? retranslateError.message : t("common.translationFailed"));
+    } finally {
+      setRegeneratingTurnId(null);
     }
   }
 
@@ -610,6 +630,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 speakingKey={speechOutput.speakingId}
                 onSpeak={speechOutput.available ? speakTranslation : null}
                 onSelectOption={selectTurnOption}
+                regenerating={regeneratingTurnId === entry.id}
+                onRetranslate={retranslateTurn}
               />
             ))}
 
@@ -649,7 +671,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                   copyScope="preview"
                   copiedKey={copiedKey}
                   onCopy={copyTranslation}
-                  targetLang={targetLang}
+                  targetLang={translationOutputLang(previewResult, sourceLang, targetLang)}
                   speakingKey={speechOutput.speakingId}
                   onSpeak={speechOutput.available ? speakTranslation : null}
                 />
@@ -783,6 +805,8 @@ function ConversationTurn({
   speakingKey,
   onSpeak,
   onSelectOption,
+  regenerating,
+  onRetranslate,
 }: {
   entry: ChatTurn;
   copiedKey: string | null;
@@ -790,32 +814,131 @@ function ConversationTurn({
   speakingKey: string | null;
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
   onSelectOption: (turn: ChatTurn, index: number) => void;
+  regenerating: boolean;
+  onRetranslate: (turn: ChatTurn, text?: string) => void;
 }) {
   const { t, languageLabel } = useI18n();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(entry.text);
+
+  function startEditing() {
+    setDraft(entry.text);
+    setEditing(true);
+  }
+
+  function saveEdit() {
+    const text = draft.trim();
+
+    if (!text) {
+      return;
+    }
+
+    setEditing(false);
+    onRetranslate(entry, text);
+  }
 
   return (
     <section className="conversation-turn">
       <div className="user-message">
-        <span className="message-meta">
-          {t("translator.languagePair", {
-            source: languageLabel(entry.sourceLang),
-            target: languageLabel(entry.targetLang),
-          })}
-        </span>
-        <p>{entry.text}</p>
+        <div className="message-meta-row">
+          <span className="message-meta">
+            {t("translator.languagePair", {
+              source: languageLabel(entry.sourceLang),
+              target: languageLabel(entry.targetLang),
+            })}
+          </span>
+          {!editing ? (
+            <span className="turn-actions">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={startEditing}
+                disabled={regenerating}
+                title={t("translator.editTurn")}
+                aria-label={t("translator.editTurn")}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => onRetranslate(entry)}
+                disabled={regenerating}
+                title={t("translator.regenerate")}
+                aria-label={t("translator.regenerate")}
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M8 16H3v5" />
+                </svg>
+              </button>
+            </span>
+          ) : null}
+        </div>
+        {editing ? (
+          <div className="turn-edit">
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              rows={3}
+              maxLength={MAX_CHARS}
+              aria-label={t("translator.sourceText")}
+            />
+            <div className="turn-edit-actions">
+              <button type="button" className="ghost-button" onClick={() => setEditing(false)}>
+                {t("common.cancel")}
+              </button>
+              <button type="button" className="send-button" onClick={saveEdit} disabled={!draft.trim()}>
+                {t("common.save")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p>{entry.text}</p>
+        )}
       </div>
-      <TranslationCard
-        result={entry.result}
-        title={t("translator.translation")}
-        copyScope={entry.id}
-        copiedKey={copiedKey}
-        onCopy={onCopy}
-        targetLang={entry.targetLang}
-        speakingKey={speakingKey}
-        onSpeak={onSpeak}
-        selectedOption={entry.selectedOption}
-        onSelectOption={(index) => onSelectOption(entry, index)}
-      />
+      {regenerating ? (
+        <div className="assistant-message pending" role="status" aria-label={t("translator.regenerate")}>
+          <span className="typing-dot" />
+        </div>
+      ) : (
+        <TranslationCard
+          result={entry.result}
+          title={t("translator.translation")}
+          copyScope={entry.id}
+          copiedKey={copiedKey}
+          onCopy={onCopy}
+          targetLang={translationOutputLang(entry.result, entry.sourceLang, entry.targetLang)}
+          speakingKey={speakingKey}
+          onSpeak={onSpeak}
+          selectedOption={entry.selectedOption}
+          onSelectOption={(index) => onSelectOption(entry, index)}
+        />
+      )}
     </section>
   );
 }
@@ -1056,6 +1179,22 @@ async function updateTurnSelection(chatId: string, turnId: string, selectedOptio
 
   if (!response.ok || !payload.chat) {
     throw new Error(payload.error ?? "Could not save the selection.");
+  }
+
+  return payload.chat;
+}
+
+async function requestTurnRetranslate(chatId: string, turnId: string, text?: string) {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "retranslate", ...(text !== undefined ? { text } : {}) }),
+  });
+
+  const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
+
+  if (!response.ok || !payload.chat) {
+    throw new Error(payload.error ?? "Translation failed.");
   }
 
   return payload.chat;

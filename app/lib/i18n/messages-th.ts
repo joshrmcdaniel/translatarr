@@ -27,6 +27,8 @@ export const messagesTh: Record<MessageKey, string> = {
   "common.username": "ชื่อผู้ใช้",
   "common.password": "รหัสผ่าน",
   "common.retry": "ลองใหม่",
+  "translator.editTurn": "แก้ไข",
+  "translator.regenerate": "สร้างใหม่",
   "common.translationFailed": "การแปลล้มเหลว",
 
   "auth.setupWelcome": "ยินดีต้อนรับ! สร้างบัญชีผู้ดูแลระบบเพื่อตั้งค่าอินสแตนซ์นี้ให้เสร็จสมบูรณ์",

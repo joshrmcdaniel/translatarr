@@ -27,6 +27,8 @@ export const messagesCs: Record<MessageKey, string> = {
   "common.username": "Uživatelské jméno",
   "common.password": "Heslo",
   "common.retry": "Zkusit znovu",
+  "translator.editTurn": "Upravit",
+  "translator.regenerate": "Vygenerovat znovu",
   "common.translationFailed": "Překlad se nezdařil.",
 
   "auth.setupWelcome": "Vítejte! Vytvořte účet správce a dokončete nastavení této instance.",

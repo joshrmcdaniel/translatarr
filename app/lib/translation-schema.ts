@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { autoDetectLanguage } from "./languages";
 
 export const keyWordSchema = z.object({
   source: z.string().min(1).describe("A meaningful word or phrase exactly as it appears in the source text."),
@@ -58,5 +59,25 @@ export const translationResponseSchema = z.object({
 });
 
 export type TranslationResponse = z.infer<typeof translationResponseSchema>;
+
+/**
+ * Language code the translation options are actually written in. The prompt
+ * translates bidirectionally — input already written in the target language
+ * is rendered back into the source language — so the output language follows
+ * the detected input language, not the nominal direction. Falls back to the
+ * target when the source is auto-detect, since the model then picks an output
+ * language the response does not identify.
+ */
+export function translationOutputLang(
+  result: TranslationResponse,
+  sourceLang: string,
+  targetLang: string,
+): string {
+  if (result.detectedSourceLanguage === targetLang && sourceLang !== autoDetectLanguage.code) {
+    return sourceLang;
+  }
+
+  return targetLang;
+}
 export type TranslationOption = z.infer<typeof translationOptionSchema>;
 export type KeyWord = z.infer<typeof keyWordSchema>;

@@ -27,6 +27,8 @@ export const messagesTl: Record<MessageKey, string> = {
   "common.username": "Username",
   "common.password": "Password",
   "common.retry": "Subukan muli",
+  "translator.editTurn": "I-edit",
+  "translator.regenerate": "Buuin muli",
   "common.translationFailed": "Nabigo ang pagsasalin.",
 
   "auth.setupWelcome": "Maligayang pagdating! Gumawa ng admin account para tapusin ang pag-setup ng instance na ito.",

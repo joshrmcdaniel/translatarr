@@ -27,6 +27,8 @@ export const messagesVi: Record<MessageKey, string> = {
   "common.username": "Tên người dùng",
   "common.password": "Mật khẩu",
   "common.retry": "Thử lại",
+  "translator.editTurn": "Chỉnh sửa",
+  "translator.regenerate": "Tạo lại",
   "common.translationFailed": "Dịch không thành công.",
 
   "auth.setupWelcome": "Chào mừng! Hãy tạo tài khoản quản trị để hoàn tất thiết lập phiên bản này.",

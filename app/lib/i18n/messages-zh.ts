@@ -27,6 +27,8 @@ export const messagesZh: Record<MessageKey, string> = {
   "common.username": "用户名",
   "common.password": "密码",
   "common.retry": "重试",
+  "translator.editTurn": "编辑",
+  "translator.regenerate": "重新生成",
   "common.translationFailed": "翻译失败。",
 
   "auth.setupWelcome": "欢迎！创建管理员账户以完成实例设置。",

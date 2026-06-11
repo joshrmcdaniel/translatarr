@@ -27,6 +27,8 @@ export const messagesYue: Record<MessageKey, string> = {
   "common.username": "用戶名",
   "common.password": "密碼",
   "common.retry": "重試",
+  "translator.editTurn": "編輯",
+  "translator.regenerate": "重新生成",
   "common.translationFailed": "翻譯失敗。",
 
   "auth.setupWelcome": "歡迎！建立管理員帳戶嚟完成呢個實例嘅設定。",

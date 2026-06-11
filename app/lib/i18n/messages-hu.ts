@@ -27,6 +27,8 @@ export const messagesHu: Record<MessageKey, string> = {
   "common.username": "Felhasználónév",
   "common.password": "Jelszó",
   "common.retry": "Újrapróbálás",
+  "translator.editTurn": "Szerkesztés",
+  "translator.regenerate": "Újragenerálás",
   "common.translationFailed": "A fordítás nem sikerült.",
 
   "auth.setupWelcome": "Üdvözlünk! Hozd létre az adminisztrátori fiókot a példány beállításának befejezéséhez.",

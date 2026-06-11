@@ -27,6 +27,8 @@ export const messagesNl: Record<MessageKey, string> = {
   "common.username": "Gebruikersnaam",
   "common.password": "Wachtwoord",
   "common.retry": "Opnieuw proberen",
+  "translator.editTurn": "Bewerken",
+  "translator.regenerate": "Opnieuw genereren",
   "common.translationFailed": "Vertaling mislukt.",
 
   "auth.setupWelcome": "Welkom! Maak het beheerdersaccount aan om de installatie van deze instantie te voltooien.",

@@ -14,7 +14,7 @@ import { autoDetectLanguage } from "../lib/languages";
 import type { SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio, type SpeechError } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
-import type { TranslationResponse } from "../lib/translation-schema";
+import { translationOutputLang, type TranslationResponse } from "../lib/translation-schema";
 
 type Side = "source" | "target";
 
@@ -130,9 +130,10 @@ export function VoiceMode({
       const topOption = result.translations[0];
 
       if (topOption) {
+        const spokenLang = translationOutputLang(result, fromLang, toLang);
         setBusyPhase("speaking");
-        setReplayable({ text: topOption.text, lang: toLang });
-        await speechOutput.speak(`voice-${Date.now()}`, topOption.text, toLang);
+        setReplayable({ text: topOption.text, lang: spokenLang });
+        await speechOutput.speak(`voice-${Date.now()}`, topOption.text, spokenLang);
       }
     } catch (utteranceError) {
       setBanner(

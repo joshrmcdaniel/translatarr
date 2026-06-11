@@ -27,6 +27,8 @@ export const messagesKo: Record<MessageKey, string> = {
   "common.username": "사용자 이름",
   "common.password": "비밀번호",
   "common.retry": "다시 시도",
+  "translator.editTurn": "편집",
+  "translator.regenerate": "재생성",
   "common.translationFailed": "번역에 실패했습니다.",
 
   "auth.setupWelcome": "환영합니다! 관리자 계정을 만들어 이 인스턴스 설정을 완료하세요.",

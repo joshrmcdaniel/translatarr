@@ -27,6 +27,8 @@ export const messagesEl: Record<MessageKey, string> = {
   "common.username": "Όνομα χρήστη",
   "common.password": "Κωδικός πρόσβασης",
   "common.retry": "Επανάληψη",
+  "translator.editTurn": "Επεξεργασία",
+  "translator.regenerate": "Αναδημιουργία",
   "common.translationFailed": "Η μετάφραση απέτυχε.",
 
   "auth.setupWelcome": "Καλώς ήρθατε! Δημιουργήστε τον λογαριασμό διαχειριστή για να ολοκληρώσετε τη ρύθμιση αυτής της εγκατάστασης.",

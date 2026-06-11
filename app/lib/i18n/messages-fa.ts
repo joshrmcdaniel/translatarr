@@ -29,6 +29,8 @@ export const messagesFa: Record<MessageKey, string> = {
   "common.username": "نام کاربری",
   "common.password": "گذرواژه",
   "common.retry": "تلاش دوباره",
+  "translator.editTurn": "ویرایش",
+  "translator.regenerate": "تولید مجدد",
   "common.translationFailed": "ترجمه ناموفق بود.",
 
   "auth.setupWelcome": "خوش آمدید! برای تکمیل راه‌اندازی این نمونه، حساب مدیر را بسازید.",

@@ -27,6 +27,8 @@ export const messagesIt: Record<MessageKey, string> = {
   "common.username": "Nome utente",
   "common.password": "Password",
   "common.retry": "Riprova",
+  "translator.editTurn": "Modifica",
+  "translator.regenerate": "Rigenera",
   "common.translationFailed": "Traduzione non riuscita.",
 
   "auth.setupWelcome": "Benvenuto! Crea l'account amministratore per completare la configurazione di questa istanza.",

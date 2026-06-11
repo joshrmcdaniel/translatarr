@@ -27,6 +27,8 @@ export const messagesFi: Record<MessageKey, string> = {
   "common.username": "Käyttäjätunnus",
   "common.password": "Salasana",
   "common.retry": "Yritä uudelleen",
+  "translator.editTurn": "Muokkaa",
+  "translator.regenerate": "Luo uudelleen",
   "common.translationFailed": "Käännös epäonnistui.",
 
   "auth.setupWelcome": "Tervetuloa! Luo järjestelmänvalvojan tili viimeistelläksesi tämän instanssin asennuksen.",

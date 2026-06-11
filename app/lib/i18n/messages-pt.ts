@@ -27,6 +27,8 @@ export const messagesPt: Record<MessageKey, string> = {
   "common.username": "Nome de usuário",
   "common.password": "Senha",
   "common.retry": "Tentar novamente",
+  "translator.editTurn": "Editar",
+  "translator.regenerate": "Regenerar",
   "common.translationFailed": "A tradução falhou.",
 
   "auth.setupWelcome": "Bem-vindo! Crie a conta de administrador para concluir a configuração desta instância.",

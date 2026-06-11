@@ -27,6 +27,8 @@ export const messagesMn: Record<MessageKey, string> = {
   "common.username": "Хэрэглэгчийн нэр",
   "common.password": "Нууц үг",
   "common.retry": "Дахин оролдох",
+  "translator.editTurn": "Засах",
+  "translator.regenerate": "Дахин үүсгэх",
   "common.translationFailed": "Орчуулга амжилтгүй боллоо.",
 
   "auth.setupWelcome": "Тавтай морил! Энэ серверийн тохиргоог дуусгахын тулд админ бүртгэл үүсгэнэ үү.",

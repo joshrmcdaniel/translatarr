@@ -27,6 +27,8 @@ export const messagesEs: Record<MessageKey, string> = {
   "common.username": "Nombre de usuario",
   "common.password": "Contraseña",
   "common.retry": "Reintentar",
+  "translator.editTurn": "Editar",
+  "translator.regenerate": "Regenerar",
   "common.translationFailed": "La traducción falló.",
 
   "auth.setupWelcome": "¡Bienvenido! Crea la cuenta de administrador para terminar de configurar esta instancia.",
