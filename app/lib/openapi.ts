@@ -316,14 +316,7 @@ export function buildOpenApiDocument() {
               description: "The created key and its one-time token.",
               content: {
                 "application/json": {
-                  schema: {
-                    type: "object",
-                    required: ["apiKey", "token"],
-                    properties: {
-                      apiKey: { $ref: "#/components/schemas/ApiKey" },
-                      token: { type: "string", description: "Shown only once." },
-                    },
-                  },
+                  schema: { $ref: "#/components/schemas/CreatedApiKey" },
                 },
               },
             },
@@ -454,6 +447,14 @@ export function buildOpenApiDocument() {
             createdAt: dateTime,
             lastUsedAt: nullableDateTime,
             expiresAt: nullableDateTime,
+          },
+        },
+        CreatedApiKey: {
+          type: "object",
+          required: ["apiKey", "token"],
+          properties: {
+            apiKey: { $ref: "#/components/schemas/ApiKey" },
+            token: { type: "string", description: "The plaintext token, shown only once." },
           },
         },
       },
