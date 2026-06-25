@@ -1,0 +1,5 @@
+# AUTO-GENERATED FILE — DO NOT EDIT.
+#
+# Pydantic models for the Translatarr API, rendered from
+# clients/python/openapi.json (dumped from the server's Zod schemas in app/lib).
+# Regenerate with: clients/python/scripts/regenerate.sh

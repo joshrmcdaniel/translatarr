@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "swagger:ui": "bun scripts/copy-swagger-ui.mjs"
+    "swagger:ui": "bun scripts/copy-swagger-ui.mjs",
+    "openapi:dump": "bun scripts/dump-openapi.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

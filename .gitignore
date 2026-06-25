@@ -181,3 +181,16 @@ data
 
 # generated Swagger UI assets (copied from swagger-ui-dist at dev/build time)
 .swagger-ui
+
+clients/python/.venv
+clients/python/openapi.json
+__pycache__
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
