@@ -6,10 +6,19 @@
  * upstream requests. Errors bubble to the caller.
  */
 
+import { ProviderError, providerErrorFromResponse } from "../provider-error";
 import type { ResolvedSpeechSettings } from "../settings-types";
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
+}
+
+function unreachableError(baseUrl: string, error: unknown): ProviderError {
+  return new ProviderError({
+    message: `Could not reach the speech provider at ${baseUrl}.`,
+    kind: "network",
+    detail: error instanceof Error ? error.message : String(error),
+  });
 }
 
 function requireApiKey(settings: ResolvedSpeechSettings): string {
@@ -39,29 +48,39 @@ export async function transcribeAudio(
     form.append("language", language);
   }
 
-  const response = await fetch(`${normalizeBaseUrl(settings.baseUrl)}/audio/transcriptions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${normalizeBaseUrl(settings.baseUrl)}/audio/transcriptions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+  } catch (error) {
+    throw unreachableError(settings.baseUrl, error);
+  }
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Transcription request failed (${response.status}): ${detail}`);
+    throw await providerErrorFromResponse(response);
   }
 
   const payload = (await response.json()) as { text?: string };
 
   if (typeof payload.text !== "string") {
-    throw new Error("Transcription response did not include text.");
+    throw new ProviderError({
+      message: "The transcription response did not include text.",
+      kind: "unknown",
+      status: response.status,
+    });
   }
 
   return payload.text;
 }
 
 /**
- * Synthesizes speech via `POST {baseUrl}/audio/speech` and returns the raw
- * upstream response so the route can stream the audio body through.
+ * Synthesizes speech via `POST {baseUrl}/audio/speech` and returns the successful
+ * upstream response so the route can stream the audio body through. Throws a
+ * `ProviderError` when the provider is unreachable or rejects the request.
  */
 export async function synthesizeAudio(
   settings: ResolvedSpeechSettings,
@@ -69,18 +88,29 @@ export async function synthesizeAudio(
   voice?: string,
 ): Promise<Response> {
   const apiKey = requireApiKey(settings);
+  let response: Response;
 
-  return fetch(`${normalizeBaseUrl(settings.baseUrl)}/audio/speech`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: settings.ttsModel,
-      voice: voice ?? settings.ttsVoice,
-      input: text,
-      response_format: "mp3",
-    }),
-  });
+  try {
+    response = await fetch(`${normalizeBaseUrl(settings.baseUrl)}/audio/speech`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: settings.ttsModel,
+        voice: voice ?? settings.ttsVoice,
+        input: text,
+        response_format: "mp3",
+      }),
+    });
+  } catch (error) {
+    throw unreachableError(settings.baseUrl, error);
+  }
+
+  if (!response.ok || !response.body) {
+    throw await providerErrorFromResponse(response);
+  }
+
+  return response;
 }

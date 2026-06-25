@@ -17,6 +17,7 @@
 - **聊天会话** — 翻译会话持久化保存到 SQLite；实时预览功能可在你输入时即时翻译，发送后将该轮对话保存下来
 - **与服务商无关** — 兼容任何 OpenAI 兼容 API（OpenAI、OpenRouter、本地 llama.cpp/Ollama 网关等）以及 Anthropic API
 - **多用户** — 区分管理员和普通用户角色；管理员配置实例级的服务商和凭证，每个用户可以为自己单独覆盖模型和系统提示词
+- **API 密钥** — 生成个人 Bearer 令牌，即可从脚本或其他应用中调用翻译 API（可选设置过期时间，并可随时吊销）
 - **本地化界面** — 界面支持多种语言；默认跟随浏览器语言，每个用户可在"设置"中自行切换
 - **PWA** — 可添加到手机主屏幕，作为独立应用运行
 - **29 种语言** — 阿拉伯语、粤语、中文（普通话）、捷克语、荷兰语、英语、芬兰语、法语、德语、希腊语、希伯来语、匈牙利语、印尼语、意大利语、日语、高棉语、韩语、蒙古语、波斯语、波兰语、葡萄牙语、罗马尼亚语、俄语、西班牙语、瑞典语、他加禄语、泰语、乌克兰语、越南语 — 另支持自动检测
@@ -111,6 +112,21 @@ bun run start        # 服务运行在 http://localhost:3000
 - **语音**（顶部栏）打开对话模式：点选一种语言，开口说话，译文会用另一种语言朗读出来。每段语音都会作为一轮对话保存到当前聊天中。
 - 默认情况下，语音功能在浏览器中运行（Web Speech API）。麦克风输入需要 Chrome、Edge 或 Safari — 或者在"设置"中将引擎切换为 **provider**，使用 OpenAI 兼容的音频 API（`/audio/transcriptions` + `/audio/speech`），这样也能支持 Firefox。
 - 隐私提示：浏览器语音识别可能会将音频发送到浏览器厂商的识别服务；provider 模式则会将音频发送到所配置的语音基础 URL。
+
+### API 访问
+
+若要从脚本或其他应用调用 Translatarr，请在**设置 → API 密钥**中生成一个个人 API 密钥（每个用户都可以创建自己的密钥，并可选设置过期时间）。完整的令牌只在创建时显示**一次** — 请当场复制保存。将其作为 Bearer 令牌附加到任意 API 路由上；密钥以其所有者的身份生效，拥有该用户的角色和聊天记录。
+
+```bash
+curl https://your-host/api/translate \
+  -H "Authorization: Bearer tra_xxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Good morning","sourceLang":"en","targetLang":"es"}'
+```
+
+`sourceLang` 可以设为 `auto`；`targetLang` 必须是具体的语言。响应为结构化的翻译 JSON（排序的翻译选项、关键词对照表、罗马音、回译）。你可以随时在同一界面吊销某个密钥 — 正在使用它的客户端会立即停止工作。
+
+登录后可在 **`/api/docs`** 访问交互式 API 参考文档（Swagger UI），原始 OpenAPI 规范位于 `/api/docs/openapi.json`。两者都需要登录会话 — 并非公开访问。
 
 ### 反向代理 / PWA 安装
 

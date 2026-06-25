@@ -1,10 +1,30 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { classifyProviderStatus, ProviderError, providerErrorFromResponse } from "./provider-error";
 import type { ResolvedLLMSettings } from "./settings-types";
 import { translationResponseSchema } from "./translation-schema";
 
 export interface LLMClient {
   complete(systemPrompt: string, userText: string): Promise<string>;
+}
+
+function toAnthropicProviderError(error: unknown): ProviderError {
+  if (error instanceof Anthropic.APIError) {
+    const status = typeof error.status === "number" ? error.status : null;
+
+    return new ProviderError({
+      message: status === null ? "Could not reach Anthropic." : `Anthropic request failed (${status}).`,
+      kind: status === null ? "network" : classifyProviderStatus(status, error.type),
+      status,
+      detail: error.message,
+    });
+  }
+
+  return new ProviderError({
+    message: "The Anthropic request failed unexpectedly.",
+    kind: "unknown",
+    detail: error instanceof Error ? error.message : String(error),
+  });
 }
 
 export function createLLMClient(settings: ResolvedLLMSettings): LLMClient {
@@ -40,26 +60,35 @@ class OpenAICompatibleClient implements LLMClient {
   }
 
   async complete(systemPrompt: string, userText: string): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userText },
-        ],
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-      }),
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userText },
+          ],
+          temperature: 0.2,
+          response_format: { type: "json_object" },
+        }),
+      });
+    } catch (error) {
+      throw new ProviderError({
+        message: `Could not reach the LLM provider at ${this.baseUrl}.`,
+        kind: "network",
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`LLM request failed (${response.status}): ${detail}`);
+      throw await providerErrorFromResponse(response);
     }
 
     const payload = (await response.json()) as {
@@ -68,7 +97,11 @@ class OpenAICompatibleClient implements LLMClient {
 
     const content = payload.choices?.[0]?.message?.content;
     if (!content) {
-      throw new Error("LLM response did not include message content.");
+      throw new ProviderError({
+        message: "The LLM response did not include any message content.",
+        kind: "unknown",
+        status: response.status,
+      });
     }
 
     return content;
@@ -87,19 +120,31 @@ class AnthropicClient implements LLMClient {
   }
 
   async complete(systemPrompt: string, userText: string): Promise<string> {
-    const response = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 8192,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userText }],
-      output_config: { format: zodOutputFormat(translationResponseSchema) },
-    });
+    try {
+      const response = await this.client.messages.parse({
+        model: this.model,
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userText }],
+        output_config: { format: zodOutputFormat(translationResponseSchema) },
+      });
 
-    if (!response.parsed_output) {
-      throw new Error(`Anthropic response had no parsed output (stop_reason: ${response.stop_reason}).`);
+      if (!response.parsed_output) {
+        throw new ProviderError({
+          message: `Anthropic returned no parsed output (stop_reason: ${response.stop_reason}).`,
+          kind: "unknown",
+          detail: response.stop_reason ?? null,
+        });
+      }
+
+      return JSON.stringify(response.parsed_output);
+    } catch (error) {
+      if (error instanceof ProviderError) {
+        throw error;
+      }
+
+      throw toAnthropicProviderError(error);
     }
-
-    return JSON.stringify(response.parsed_output);
   }
 }
 

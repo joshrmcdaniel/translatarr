@@ -7,6 +7,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError } from "../api-error";
 import type { SpeechEffectiveView } from "../settings-types";
 import {
   createRecognizer,
@@ -120,7 +121,7 @@ export function useSpeechInput(effective: SpeechEffectiveView | null) {
 
 export function useSpeechOutput(effective: SpeechEffectiveView | null) {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SpeechError | null>(null);
   const synthesizerRef = useRef<SpeechSynthesizer | null>(null);
 
   const capabilities = effective ? getSpeechCapabilities(effective).tts : { available: false, engine: null };
@@ -159,7 +160,11 @@ export function useSpeechOutput(effective: SpeechEffectiveView | null) {
       try {
         await synthesizer.speak(text, langCode);
       } catch (speakError) {
-        setError(speakError instanceof Error ? speakError.message : "Speech playback failed.");
+        setError(
+          speakError instanceof ApiError
+            ? { code: "provider", message: speakError.message, providerCode: speakError.code ?? undefined }
+            : { code: "provider", message: speakError instanceof Error ? speakError.message : "Speech playback failed." },
+        );
       } finally {
         if (synthesizerRef.current === synthesizer) {
           synthesizerRef.current = null;

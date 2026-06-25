@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ApiError } from "../lib/api-error";
 import type { ChatDetail, ChatSummary, ChatTurn } from "../lib/chat-types";
-import { speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
+import { apiErrorMessage, speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
 import { detectBrowserLocale, type Locale } from "../lib/i18n/messages";
 import { autoDetectLanguage, languages } from "../lib/languages";
 import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types";
@@ -60,6 +61,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const isTooLong = text.length > MAX_CHARS;
   const canSend = Boolean(trimmedText) && !isTooLong && sendStatus !== "loading";
   const latestResult = previewResult ?? activeChat?.turns.at(-1)?.result ?? null;
+  const languageLocked = (activeChat?.turns.length ?? 0) > 0;
 
   useEffect(() => {
     void initializeChats();
@@ -134,7 +136,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
         setPreviewResult(null);
         setPreviewStatus("error");
-        setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
+        setError(apiErrorMessage(t, translationError, "common.translationFailed"));
       }
     }, DEBOUNCE_MS);
 
@@ -241,11 +243,13 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
       setActiveChat(updatedChat);
       setChats((current) => upsertSummary(current, toSummary(updatedChat)));
+      setSourceLang(updatedChat.sourceLang);
+      setTargetLang(updatedChat.targetLang);
       setSendStatus("success");
     } catch (translationError) {
       setText((current) => current || submittedText);
       setSendStatus("error");
-      setError(translationError instanceof Error ? translationError.message : t("common.translationFailed"));
+      setError(apiErrorMessage(t, translationError, "common.translationFailed"));
     } finally {
       setPendingTurn(null);
     }
@@ -259,14 +263,48 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     setRegeneratingTurnId(turn.id);
     setError("");
 
+    // Branching makes the edited turn the new leaf, so reflect that immediately rather than
+    // waiting for the response: drop the turns the new branch leaves behind and show the edited
+    // text while it translates.
+    const restoreChat = activeChat;
+    if (activeChat) {
+      const editedIndex = activeChat.turns.findIndex((entry) => entry.id === turn.id);
+
+      if (editedIndex !== -1) {
+        setActiveChat({
+          ...activeChat,
+          turns: activeChat.turns
+            .slice(0, editedIndex + 1)
+            .map((entry, index) => (index === editedIndex && text !== undefined ? { ...entry, text } : entry)),
+        });
+      }
+    }
+
     try {
       const chat = await requestTurnRetranslate(turn.chatId, turn.id, text);
       setActiveChat(chat);
       setChats((current) => upsertSummary(current, toSummary(chat)));
     } catch (retranslateError) {
-      setError(retranslateError instanceof Error ? retranslateError.message : t("common.translationFailed"));
+      setActiveChat(restoreChat);
+      setError(apiErrorMessage(t, retranslateError, "common.translationFailed"));
     } finally {
       setRegeneratingTurnId(null);
+    }
+  }
+
+  async function switchTurnBranch(turn: ChatTurn, direction: number) {
+    const targetId = turn.siblingIds[turn.branchIndex + direction];
+
+    if (!targetId) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      setActiveChat(await requestSwitchBranch(turn.chatId, targetId));
+    } catch (switchError) {
+      setError(switchError instanceof Error ? switchError.message : t("common.translationFailed"));
     }
   }
 
@@ -556,7 +594,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             <div className="language-controls">
               <label>
                 <span>{t("translator.from")}</span>
-                <select value={sourceLang} onChange={(event) => setSourceLang(event.target.value)}>
+                <select value={sourceLang} disabled={languageLocked} onChange={(event) => setSourceLang(event.target.value)}>
                   <option value={autoDetectLanguage.code}>{languageLabel(autoDetectLanguage.code)}</option>
                   {languages.map((language) => (
                     <option key={language.code} value={language.code}>
@@ -566,13 +604,13 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 </select>
               </label>
 
-              <button type="button" className="swap-button" onClick={swapLanguages} aria-label={t("translator.swapLanguages")}>
+              <button type="button" className="swap-button" onClick={swapLanguages} disabled={languageLocked} aria-label={t("translator.swapLanguages")}>
                 {t("common.swap")}
               </button>
 
               <label>
                 <span>{t("translator.to")}</span>
-                <select value={targetLang} onChange={(event) => setTargetLang(event.target.value)}>
+                <select value={targetLang} disabled={languageLocked} onChange={(event) => setTargetLang(event.target.value)}>
                   {languages.map((language) => (
                     <option key={language.code} value={language.code}>
                       {languageLabel(language.code)}
@@ -632,6 +670,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 onSelectOption={selectTurnOption}
                 regenerating={regeneratingTurnId === entry.id}
                 onRetranslate={retranslateTurn}
+                onSwitchBranch={switchTurnBranch}
               />
             ))}
 
@@ -752,7 +791,12 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
         </div>
       </section>
 
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} isAdmin={user.role === "admin"} />
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        isAdmin={user.role === "admin"}
+        currentUserId={user.id}
+      />
 
       {voiceModeOpen && speechConfig ? (
         <VoiceMode
@@ -807,6 +851,7 @@ function ConversationTurn({
   onSelectOption,
   regenerating,
   onRetranslate,
+  onSwitchBranch,
 }: {
   entry: ChatTurn;
   copiedKey: string | null;
@@ -816,6 +861,7 @@ function ConversationTurn({
   onSelectOption: (turn: ChatTurn, index: number) => void;
   regenerating: boolean;
   onRetranslate: (turn: ChatTurn, text?: string) => void;
+  onSwitchBranch: (turn: ChatTurn, direction: number) => void;
 }) {
   const { t, languageLabel } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -849,6 +895,31 @@ function ConversationTurn({
           </span>
           {!editing ? (
             <span className="turn-actions">
+              {entry.branchCount > 1 ? (
+                <span className="branch-switcher">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => onSwitchBranch(entry, -1)}
+                    disabled={regenerating || entry.branchIndex === 0}
+                    aria-label={`${entry.branchIndex + 1} / ${entry.branchCount}`}
+                  >
+                    ‹
+                  </button>
+                  <span className="branch-count">
+                    {entry.branchIndex + 1}/{entry.branchCount}
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => onSwitchBranch(entry, 1)}
+                    disabled={regenerating || entry.branchIndex === entry.branchCount - 1}
+                    aria-label={`${entry.branchIndex + 1} / ${entry.branchCount}`}
+                  >
+                    ›
+                  </button>
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="icon-button"
@@ -1159,10 +1230,10 @@ async function addChatTurn(
     body: JSON.stringify({ text, sourceLang, targetLang, ...(precomputedResult ? { result: precomputedResult } : {}) }),
   });
 
-  const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
+  const payload = (await response.json()) as { chat?: ChatDetail; error?: string; code?: string };
 
   if (!response.ok || !payload.chat) {
-    throw new Error(payload.error ?? "Translation failed.");
+    throw new ApiError(payload.error ?? "Translation failed.", payload.code);
   }
 
   return payload.chat;
@@ -1191,10 +1262,26 @@ async function requestTurnRetranslate(chatId: string, turnId: string, text?: str
     body: JSON.stringify({ action: "retranslate", ...(text !== undefined ? { text } : {}) }),
   });
 
+  const payload = (await response.json()) as { chat?: ChatDetail; error?: string; code?: string };
+
+  if (!response.ok || !payload.chat) {
+    throw new ApiError(payload.error ?? "Translation failed.", payload.code);
+  }
+
+  return payload.chat;
+}
+
+async function requestSwitchBranch(chatId: string, turnId: string) {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "switchBranch" }),
+  });
+
   const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
 
   if (!response.ok || !payload.chat) {
-    throw new Error(payload.error ?? "Translation failed.");
+    throw new Error(payload.error ?? "Could not switch version.");
   }
 
   return payload.chat;
@@ -1214,10 +1301,11 @@ async function requestTranslation(
     signal,
   });
 
-  const payload = (await response.json()) as TranslationResponse | { error?: string };
+  const payload = (await response.json()) as TranslationResponse | { error?: string; code?: string };
 
   if (!response.ok) {
-    throw new Error("error" in payload && payload.error ? payload.error : "Translation failed.");
+    const failure = payload as { error?: string; code?: string };
+    throw new ApiError(failure.error ?? "Translation failed.", failure.code);
   }
 
   return payload as TranslationResponse;

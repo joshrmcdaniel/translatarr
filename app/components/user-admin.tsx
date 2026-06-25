@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useI18n } from "../lib/i18n/i18n-context";
 import type { User, UserRole } from "../lib/user-store";
 
-export function UserAdmin() {
+export function UserAdmin({ currentUserId }: { currentUserId: string }) {
   const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [username, setUsername] = useState("");
@@ -43,18 +43,19 @@ export function UserAdmin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password, role }),
       });
-      const payload = (await response.json()) as { user?: User; error?: string };
+      const payload = (await response.json()) as { user?: User };
 
       if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? t("users.createFailed"));
+        setError(response.status === 409 ? t("users.usernameTaken") : t("users.createFailed"));
+        return;
       }
 
       setUsername("");
       setPassword("");
       setRole("user");
       await loadUsers();
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : t("users.createFailed"));
+    } catch {
+      setError(t("users.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -87,18 +88,20 @@ export function UserAdmin() {
           <div className="user-row" key={user.id}>
             <strong>{user.username}</strong>
             <span className="badge">{t(user.role === "admin" ? "users.badgeAdmin" : "users.badgeUser")}</span>
-            <button
-              type="button"
-              className="ghost-button danger-button"
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm(t("users.confirmDelete", { username: user.username }))) {
-                  void removeUser(user.id);
-                }
-              }}
-            >
-              {t("common.delete")}
-            </button>
+            {user.id === currentUserId ? null : (
+              <button
+                type="button"
+                className="ghost-button danger-button"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm(t("users.confirmDelete", { username: user.username }))) {
+                    void removeUser(user.id);
+                  }
+                }}
+              >
+                {t("common.delete")}
+              </button>
+            )}
           </div>
         ))}
       </div>

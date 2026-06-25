@@ -5,6 +5,7 @@ import { useI18n } from "../lib/i18n/i18n-context";
 import { localeNativeNames } from "../lib/i18n/language-names";
 import { detectBrowserLocale, locales, type Locale } from "../lib/i18n/messages";
 import type { LLMProvider, SettingsPayload, SpeechEngine } from "../lib/settings-types";
+import { ApiKeysManager } from "./api-keys-manager";
 import { UserAdmin } from "./user-admin";
 
 type RequestState = "idle" | "loading" | "error" | "success";
@@ -49,10 +50,12 @@ export function SettingsDialog({
   open,
   onClose,
   isAdmin,
+  currentUserId,
 }: {
   open: boolean;
   onClose: () => void;
   isAdmin: boolean;
+  currentUserId: string;
 }) {
   const { t, setLocale } = useI18n();
   const [payload, setPayload] = useState<SettingsPayload | null>(null);
@@ -291,6 +294,11 @@ export function SettingsDialog({
               </div>
             </section>
 
+            <section className="settings-section">
+              <h3>{t("apiKeys.section")}</h3>
+              <ApiKeysManager />
+            </section>
+
             {isAdmin && settings.instance ? (
               <>
                 <section className="settings-section">
@@ -472,7 +480,7 @@ export function SettingsDialog({
 
                 <section className="settings-section">
                   <h3>{t("settings.usersSection")}</h3>
-                  <UserAdmin />
+                  <UserAdmin currentUserId={currentUserId} />
                 </section>
               </>
             ) : null}

@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { getSessionUser } from "../../../lib/auth";
 import { clearTurns, deleteChat, getChat, renameChat } from "../../../lib/chat-store";
+import { updateChatBodySchema, type UpdateChatBody } from "../../../lib/request-schemas";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
 };
-
-const patchSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("clear") }),
-  z.object({ action: z.literal("rename"), title: z.string().trim().min(1).max(80) }),
-]);
 
 export async function GET(_request: Request, context: RouteContext) {
   const user = await getSessionUser();
@@ -37,10 +32,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { chatId } = await context.params;
-  let body: z.infer<typeof patchSchema>;
+  let body: UpdateChatBody;
 
   try {
-    body = patchSchema.parse(await request.json());
+    body = updateChatBodySchema.parse(await request.json());
   } catch {
     return NextResponse.json({ error: "Unsupported chat update." }, { status: 400 });
   }

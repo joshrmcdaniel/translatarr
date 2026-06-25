@@ -1,14 +1,15 @@
 {
   "name": "translatarr",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "bun run swagger:ui && next dev",
+    "build": "bun run swagger:ui && next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "swagger:ui": "bun scripts/copy-swagger-ui.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -24,6 +25,7 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "playwright": "^1.60.0",
+    "swagger-ui-dist": "5.32.8",
     "typescript": "^5.8.3"
   }
 }

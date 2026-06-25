@@ -9,6 +9,7 @@
  * unavailable.
  */
 
+import { ApiError } from "../api-error";
 import type { SpeechEffectiveView, SpeechEngine } from "../settings-types";
 import { autoDetectLanguage } from "../languages";
 import { getVoicesAsync, pickVoice, toBcp47, toRecognitionLang } from "./locale-map";
@@ -24,6 +25,8 @@ export type SpeechErrorCode =
 export type SpeechError = {
   code: SpeechErrorCode;
   message: string;
+  /** Server-supplied provider error code (see ProviderErrorKind), used to localize provider failures. */
+  providerCode?: string;
 };
 
 export type RecognizerEvent =
@@ -275,7 +278,7 @@ class ProviderRecognizer implements SpeechRecognizer {
 
     try {
       const response = await fetch("/api/speech/transcribe", { method: "POST", body: form });
-      const payload = (await response.json()) as { text?: string; error?: string };
+      const payload = (await response.json()) as { text?: string; error?: string; code?: string };
 
       if (!response.ok || typeof payload.text !== "string") {
         this.onEvent({
@@ -283,6 +286,7 @@ class ProviderRecognizer implements SpeechRecognizer {
           error: {
             code: response.status === 400 ? "not-configured" : "provider",
             message: payload.error ?? "Transcription failed.",
+            providerCode: payload.code,
           },
         });
       } else if (payload.text.trim()) {
@@ -393,8 +397,8 @@ class ProviderSynthesizer implements SpeechSynthesizer {
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new Error(payload.error ?? "Speech synthesis failed.");
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string };
+      throw new ApiError(payload.error ?? "Speech synthesis failed.", payload.code);
     }
 
     const blob = await response.blob();

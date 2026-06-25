@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { getSessionUser } from "../../../../lib/auth";
 import { addTurn, getChat } from "../../../../lib/chat-store";
-import { isSupportedLanguage } from "../../../../lib/languages";
+import { autoDetectLanguage } from "../../../../lib/languages";
+import { createTurnBodySchema, type CreateTurnBody } from "../../../../lib/request-schemas";
 import { translationResponseSchema, type TranslationResponse } from "../../../../lib/translation-schema";
-import { contextFromTurns, MalformedLLMResponseError, translateText } from "../../../../lib/translation-service";
+import { translationErrorResponse } from "../../../../lib/translation-error";
+import { contextFromTurns, translateText } from "../../../../lib/translation-service";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
 };
 
-const createTurnSchema = z.object({
-  text: z.string().trim().min(1).max(12000),
-  sourceLang: z.string().min(2),
-  targetLang: z.string().min(2),
-  // Client-supplied live-preview result for this exact text; reused to skip a duplicate LLM call.
-  result: z.unknown().optional(),
-});
+// A chat is locked to its language pair once it has turns: a new turn may only use
+// those two languages (in either direction), with auto-detect always permitted.
+function pairMatchesChat(
+  chat: { sourceLang: string; targetLang: string },
+  sourceLang: string,
+  targetLang: string,
+): boolean {
+  const pinned = new Set([chat.sourceLang, chat.targetLang].filter((lang) => lang !== autoDetectLanguage.code));
+  const within = (lang: string) => lang === autoDetectLanguage.code || pinned.has(lang);
+  return within(sourceLang) && within(targetLang);
+}
 
 export async function POST(request: Request, context: RouteContext) {
   const user = await getSessionUser();
@@ -26,22 +31,22 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const { chatId } = await context.params;
-  let body: z.infer<typeof createTurnSchema>;
+  let body: CreateTurnBody;
 
   try {
-    body = createTurnSchema.parse(await request.json());
+    body = createTurnBodySchema.parse(await request.json());
   } catch {
     return NextResponse.json({ error: "Send text, sourceLang, and targetLang." }, { status: 400 });
-  }
-
-  if (!isSupportedLanguage(body.sourceLang) || !isSupportedLanguage(body.targetLang) || body.targetLang === "auto") {
-    return NextResponse.json({ error: "Unsupported language selection." }, { status: 400 });
   }
 
   const existingChat = getChat(chatId, user.id);
 
   if (!existingChat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });
+  }
+
+  if (existingChat.turns.length > 0 && !pairMatchesChat(existingChat, body.sourceLang, body.targetLang)) {
+    return NextResponse.json({ error: "This chat is locked to its language pair." }, { status: 400 });
   }
 
   let precomputedResult: TranslationResponse | undefined;
@@ -69,15 +74,6 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json({ chat });
   } catch (error) {
-    if (error instanceof MalformedLLMResponseError) {
-      console.error("Malformed translation response", error);
-      return NextResponse.json(
-        { error: "The translation service returned an invalid response. Please try again." },
-        { status: 422 },
-      );
-    }
-
-    console.error("Translation provider error", error);
-    return NextResponse.json({ error: "The translation service is unavailable." }, { status: 502 });
+    return translationErrorResponse(error);
   }
 }

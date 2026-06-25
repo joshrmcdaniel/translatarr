@@ -241,12 +241,18 @@ export function VoiceMode({
               </div>
             ) : null}
 
-            {speechOutput.error && replayable ? (
+            {speechOutput.error ? (
               <div className="voice-banner">
-                <span>{t("voice.playbackBlocked")}</span>
-                <button type="button" className="ghost-button" onClick={replayLast}>
-                  {t("voice.playTranslation")}
-                </button>
+                <span>
+                  {speechOutput.error.providerCode
+                    ? speechErrorMessage(t, speechOutput.error)
+                    : t("voice.playbackBlocked")}
+                </span>
+                {replayable && !speechOutput.error.providerCode ? (
+                  <button type="button" className="ghost-button" onClick={replayLast}>
+                    {t("voice.playTranslation")}
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

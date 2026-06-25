@@ -162,6 +162,43 @@ export const messagesEn = {
   "speech.noSpeech": "No speech was detected.",
   "speech.network": "Could not reach the server.",
   "speech.transcriptionFailed": "Transcription failed.",
+
+  "error.providerAuth": "The provider rejected the configured API key. Check it in Settings.",
+  "error.providerRateLimit": "The provider is rate limiting requests. Try again in a moment.",
+  "error.providerQuota": "The provider account is out of quota or credit.",
+  "error.providerModel": "The configured model isn't available from the provider. Check it in Settings.",
+  "error.providerContextLength": "The text is too long for the model. Shorten it and try again.",
+  "error.providerNetwork": "Couldn't reach the provider. Check the connection and try again.",
+  "error.providerUnavailable": "The service is temporarily unavailable. Try again shortly.",
+  "error.malformed": "The service returned an invalid response. Please try again.",
+
+  "auth.invalidCredentials": "Invalid username or password.",
+  "auth.setupComplete": "Setup has already been completed.",
+  "auth.checkInput": "Enter a valid username and password.",
+  "users.usernameTaken": "That username is already taken.",
+
+  "apiKeys.section": "API keys",
+  "apiKeys.description":
+    "Personal tokens for calling the Translatarr API from scripts or other apps. Send one in the Authorization: Bearer header.",
+  "apiKeys.loadFailed": "Could not load API keys.",
+  "apiKeys.createFailed": "Could not create API key.",
+  "apiKeys.revokeFailed": "Could not revoke API key.",
+  "apiKeys.name": "Name",
+  "apiKeys.namePlaceholder": "e.g. cli-script",
+  "apiKeys.expiry": "Expires (optional)",
+  "apiKeys.expiryHint": "Leave blank for a key that never expires.",
+  "apiKeys.create": "Create key",
+  "apiKeys.none": "No API keys yet.",
+  "apiKeys.created": "Created {date}",
+  "apiKeys.lastUsed": "Last used {date}",
+  "apiKeys.neverUsed": "Never used",
+  "apiKeys.expiresOn": "Expires {date}",
+  "apiKeys.neverExpires": "Never expires",
+  "apiKeys.expired": "Expired",
+  "apiKeys.revoke": "Revoke",
+  "apiKeys.confirmRevoke": "Revoke {name}? Any client using it will stop working.",
+  "apiKeys.newKeyTitle": "Copy your new key now",
+  "apiKeys.newKeyWarning": "This is the only time you'll see it.",
 } as const;
 
 export type MessageKey = keyof typeof messagesEn;

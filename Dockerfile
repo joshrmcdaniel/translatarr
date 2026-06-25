@@ -28,6 +28,8 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# Swagger UI assets generated at build time (gitignored); served by /api/docs/[asset].
+COPY --from=builder /app/.swagger-ui ./.swagger-ui
 
 # SQLite lives here; mount a volume to persist users/chats/settings.
 # LLM config (optional; can also be set in-app): LLM_API_KEY, LLM_PROVIDER,

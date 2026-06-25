@@ -70,6 +70,19 @@ function migrate(database: Database.Database) {
       value TEXT NOT NULL,
       PRIMARY KEY (user_id, key)
     );
+
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      prefix TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_used_at TEXT,
+      expires_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
   `);
 
   const chatColumns = database.prepare("PRAGMA table_info(chats)").all() as Array<{ name: string }>;
@@ -85,5 +98,39 @@ function migrate(database: Database.Database) {
 
   if (!turnColumns.some((column) => column.name === "selected_option")) {
     database.exec("ALTER TABLE chat_turns ADD COLUMN selected_option INTEGER NOT NULL DEFAULT 0");
+  }
+
+  if (!turnColumns.some((column) => column.name === "parent_id")) {
+    // Link pre-branching turns into a linear chain per chat so existing chats keep their full history.
+    database.exec(`
+      ALTER TABLE chat_turns ADD COLUMN parent_id TEXT;
+
+      UPDATE chat_turns
+      SET parent_id = (
+        SELECT p.id FROM chat_turns AS p
+        WHERE p.chat_id = chat_turns.chat_id
+          AND (p.created_at < chat_turns.created_at
+               OR (p.created_at = chat_turns.created_at AND p.rowid < chat_turns.rowid))
+        ORDER BY p.created_at DESC, p.rowid DESC
+        LIMIT 1
+      )
+      WHERE parent_id IS NULL;
+    `);
+  }
+
+  if (!chatColumns.some((column) => column.name === "active_turn_id")) {
+    // Point each existing chat at its newest turn as the active branch leaf.
+    database.exec(`
+      ALTER TABLE chats ADD COLUMN active_turn_id TEXT;
+
+      UPDATE chats
+      SET active_turn_id = (
+        SELECT id FROM chat_turns
+        WHERE chat_turns.chat_id = chats.id
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT 1
+      )
+      WHERE active_turn_id IS NULL;
+    `);
   }
 }

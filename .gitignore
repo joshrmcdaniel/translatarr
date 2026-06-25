@@ -178,3 +178,6 @@ dist
 
 # app data
 data
+
+# generated Swagger UI assets (copied from swagger-ui-dist at dev/build time)
+.swagger-ui

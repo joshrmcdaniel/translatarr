@@ -86,15 +86,25 @@ function AuthForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      const payload = (await response.json()) as { user?: User; error?: string };
+      const payload = (await response.json()) as { user?: User };
 
       if (!response.ok || !payload.user) {
-        throw new Error(payload.error ?? t("auth.failed"));
+        setError(
+          response.status === 401
+            ? t("auth.invalidCredentials")
+            : response.status === 403
+              ? t("auth.setupComplete")
+              : response.status === 400
+                ? t("auth.checkInput")
+                : t("auth.failed"),
+        );
+        setSubmitting(false);
+        return;
       }
 
       onAuthenticated(payload.user);
-    } catch (authError) {
-      setError(authError instanceof Error ? authError.message : t("auth.failed"));
+    } catch {
+      setError(t("auth.failed"));
       setSubmitting(false);
     }
   }

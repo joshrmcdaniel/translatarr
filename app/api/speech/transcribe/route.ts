@@ -3,6 +3,7 @@ import { getSessionUser } from "../../../lib/auth";
 import { isSupportedLanguage } from "../../../lib/languages";
 import { resolveSpeechSettings } from "../../../lib/settings-store";
 import { transcribeAudio } from "../../../lib/speech/provider-audio";
+import { speechErrorResponse } from "../../../lib/speech/speech-error";
 
 const maxAudioBytes = 15 * 1024 * 1024;
 
@@ -50,7 +51,6 @@ export async function POST(request: Request) {
     const text = await transcribeAudio(settings, file, filename, transcriptionLanguage);
     return NextResponse.json({ text });
   } catch (error) {
-    console.error("Speech transcription error", error);
-    return NextResponse.json({ error: "The speech service is unavailable." }, { status: 502 });
+    return speechErrorResponse(error);
   }
 }

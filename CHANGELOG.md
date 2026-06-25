@@ -1,3 +1,20 @@
+## Translatarr v0.2.0
+
+**Versioned edits with conversation branching, plus programmatic API access — personal API keys with bearer-token auth and an authenticated, auto-generated OpenAPI/Swagger reference.**
+
+### Added
+
+- **Branching edits and regenerations.** Editing a turn's source text or regenerating its translation no longer overwrites it — each creates a new **version** that branches from the same point in the conversation, the way alternate takes work in ChatGPT. A version switcher (`‹ 2/3 ›`) appears on any turn that has more than one take, letting you page between them; because turns form a tree and each chat remembers its active branch, switching a version also switches the conversation that follows it. Earlier takes (and their downstream turns) are preserved instead of being lost on every edit — this supersedes v0.1.1's edit/regenerate, which replaced the result in place. Backed by `chat_turns.parent_id` and `chats.active_turn_id`, both added automatically (existing turns are linked into a single linear branch, each chat pointed at its newest turn — no manual migration), and the `PATCH /api/chats/[chatId]/turns/[turnId]` actions `retranslate` (records the re-translation as a new version) and `switchBranch` (makes a sibling version the active one).
+- **API keys for programmatic access.** Call Translatarr from scripts, other apps, or the command line with a personal access token instead of a browser session. Every user mints and revokes their own keys under **Settings → API keys**, each with an optional expiry date. A key is sent as `Authorization: Bearer <token>` and acts as its owner, with that user's role and chats — `getSessionUser()` now accepts either a bearer token or the session cookie, so every existing route works with both and nothing else had to change. Tokens are high-entropy `tra_…` strings stored only as a SHA-256 hash and shown exactly once, at creation; a key past its expiry self-evicts on next use. Backed by a new `api_keys` table created automatically on first run — no manual migration.
+- **Interactive API reference (Swagger UI).** A browsable OpenAPI 3.1 reference at **`/api/docs`**, with the raw spec at `/api/docs/openapi.json`, documenting the routes meant to be called from outside the web UI: translation, chats and turns, speech, and key management. Everything lives under `/api/docs` and requires a logged-in session — the page, the spec, and even the Swagger UI assets are gated, so nothing about the API surface is exposed publicly. Request bodies — down to per-field constraints and the language-code enums — are generated from the routes' own validation schemas, so the documentation can't drift from what the server actually accepts. The Swagger UI assets are vendored from a pinned dependency at build time and served from behind the same auth, never committed to the repo.
+- **Explicit language-code enums.** `sourceLang` and `targetLang` are now real enumerations built from the supported-language registry (source accepts `auto`; target doesn't), so invalid codes are rejected at the validation layer instead of a separate check, and the API docs list every valid value.
+
+### Changed
+
+- The request schemas for the API-documented routes (translate, chats, turns, speech, keys) moved onto the `zod/v4` API in a shared `request-schemas.ts`, making one definition the single source of truth for both request validation and the generated OpenAPI spec.
+
+---
+
 ## Translatarr v0.1.1
 
 **Voice support — dictation, spoken translations, and a conversation mode — context-aware translations with tone labels, and a mobile overhaul.**

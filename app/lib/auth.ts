@@ -7,9 +7,12 @@
  */
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { resolveApiKeyUser } from "./api-key-store";
 import { getDb } from "./db";
 import { getUserById, type User } from "./user-store";
+
+const BEARER_PREFIX = "Bearer ";
 
 const SESSION_COOKIE = "translatarr_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -48,6 +51,12 @@ export async function startSession(userId: string) {
 }
 
 export async function getSessionUser(): Promise<User | null> {
+  const authHeader = (await headers()).get("authorization");
+
+  if (authHeader?.startsWith(BEARER_PREFIX)) {
+    return resolveApiKeyUser(authHeader.slice(BEARER_PREFIX.length).trim());
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 

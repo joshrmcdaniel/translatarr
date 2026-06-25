@@ -11,6 +11,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ApiError } from "../api-error";
 import type { SpeechError } from "../speech/speech-client";
 import { localizedLanguageName } from "./language-names";
 import { catalogs, detectBrowserLocale, formatMessage, type Locale, type MessageKey } from "./messages";
@@ -64,11 +65,63 @@ export function useI18n(): I18nValue {
   return value;
 }
 
+/** Maps a server provider error code to its localized message key, or null when it isn't one. */
+function providerErrorKey(code: string): MessageKey | null {
+  switch (code) {
+    case "auth":
+      return "error.providerAuth";
+    case "rate_limit":
+      return "error.providerRateLimit";
+    case "quota":
+      return "error.providerQuota";
+    case "model_not_found":
+      return "error.providerModel";
+    case "context_length":
+      return "error.providerContextLength";
+    case "network":
+      return "error.providerNetwork";
+    case "malformed":
+      return "error.malformed";
+    case "bad_request":
+    case "server":
+    case "unknown":
+      return "error.providerUnavailable";
+    default:
+      return null;
+  }
+}
+
+/** Localizes a thrown ApiError by its server error code, falling back to its message or a key. */
+export function apiErrorMessage(t: Translate, error: unknown, fallbackKey: MessageKey): string {
+  if (error instanceof ApiError && error.code) {
+    const key = providerErrorKey(error.code);
+
+    if (key) {
+      return t(key);
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return t(fallbackKey);
+}
+
 /**
- * Maps a speech error to a localized message by its code. Provider errors
- * keep the server-supplied message (more specific) when one exists.
+ * Maps a speech error to a localized message by its code. A provider code from
+ * the server localizes to the shared provider messages; otherwise the engine
+ * error code maps to a speech-specific message.
  */
 export function speechErrorMessage(t: Translate, error: SpeechError): string {
+  if (error.providerCode) {
+    const key = providerErrorKey(error.providerCode);
+
+    if (key) {
+      return t(key);
+    }
+  }
+
   switch (error.code) {
     case "permission-denied":
       return t("speech.permissionDenied");

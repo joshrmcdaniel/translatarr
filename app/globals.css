@@ -629,7 +629,23 @@ select:focus {
 
 .turn-actions {
   display: inline-flex;
+  align-items: center;
   gap: 6px;
+}
+
+.branch-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.branch-count {
+  font-family: var(--font-mono-stack);
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-mid);
+  min-width: 2.2em;
+  text-align: center;
 }
 
 .icon-button {
@@ -1249,6 +1265,74 @@ select:focus {
 .user-add-fields {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
+  align-items: start;
+  gap: 10px;
+}
+
+/* the API-key create form has only two fields, so it drops the user form's
+   trailing auto column and spans the row evenly */
+.api-key-fields {
+  grid-template-columns: 1fr 1fr;
+}
+
+.api-key-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--ink-3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--ink-2);
+}
+
+.api-key-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.api-key-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.api-key-prefix {
+  font-family: var(--font-mono-stack);
+  font-size: 0.78rem;
+  color: var(--text-low);
+}
+
+.api-key-meta {
+  font-size: 0.74rem;
+  color: var(--text-low);
+}
+
+.api-key-new {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--jade);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--ink-2);
+}
+
+.api-key-token {
+  font-family: var(--font-mono-stack);
+  font-size: 0.8rem;
+  word-break: break-all;
+  user-select: all;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--ink-1);
+  border: 1px solid var(--ink-3);
+}
+
+.api-key-new-actions {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 

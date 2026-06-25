@@ -17,6 +17,7 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 - **Chats** — translation sessions are persisted to SQLite; live preview translates as you type, sending saves the turn
 - **Provider-agnostic** — works with any OpenAI-compatible API (OpenAI, OpenRouter, local llama.cpp/Ollama gateways, …) or the Anthropic API
 - **Multi-user** — admin and user roles; the admin configures the instance provider/credentials, each user can override the model and system prompt for themselves
+- **API keys** — mint personal bearer tokens to call the translation API from scripts or other apps (optional expiry, revocable any time)
 - **Localized UI** — the interface is available in several languages; defaults to your browser language, switchable per user in Settings
 - **PWA** — add it to your phone's home screen and it runs as a standalone app
 - **29 languages** — Arabic, Cantonese, Chinese (Mandarin), Czech, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Khmer, Korean, Mongolian, Persian (Farsi), Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Thai, Ukrainian, Vietnamese — plus auto-detect
@@ -111,6 +112,21 @@ The system prompt is also editable (per user or instance-wide) and supports `{{s
 - **Voice** (top bar) opens conversation mode: tap a language, talk, and the translation is spoken back in the other language. Each utterance is saved as a turn in the current chat.
 - By default speech runs in the browser (Web Speech API). Microphone input needs Chrome, Edge, or Safari — or switch the engine to **provider** in Settings to use an OpenAI-compatible audio API (`/audio/transcriptions` + `/audio/speech`), which also covers Firefox.
 - Privacy note: browser speech recognition may send audio to the browser vendor's recognition service; provider mode sends audio to the configured speech base URL.
+
+### API access
+
+To call Translatarr from a script or another app, mint a personal API key under **Settings → API keys** (every user can create their own; optionally set an expiry). The full token is shown **once** at creation — copy it then. Send it as a bearer token on any API route; a key acts as its owner, with that user's role and chats.
+
+```bash
+curl https://your-host/api/translate \
+  -H "Authorization: Bearer tra_xxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Good morning","sourceLang":"en","targetLang":"es"}'
+```
+
+`sourceLang` may be `auto`; `targetLang` must be a concrete language. The response is the structured translation JSON (ranked options, glossary, romanization, back-translation). Revoke a key any time from the same screen — clients using it stop working immediately.
+
+Interactive API reference (Swagger UI) lives at **`/api/docs`** while logged in, with the raw OpenAPI spec at `/api/docs/openapi.json`. Both require a session — they aren't public.
 
 ### Behind a reverse proxy / PWA install
 
