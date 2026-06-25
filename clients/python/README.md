@@ -6,9 +6,16 @@ OpenAPI spec.
 
 ## Install
 
+CI builds the wheel + sdist and attaches them to the GitHub Release for each
+`v*` tag (GitHub Packages has no Python registry, so there is no `pip install`
+from a registry — install from the Release URL):
+
 ```bash
-pip install translatarr-client          # once published
-pip install -e clients/python           # from this repo
+# from a published GitHub Release (version matches the app's v* tag)
+pip install https://github.com/joshrmcdaniel/translatarr/releases/download/v1.2.3/translatarr_client-1.2.3-py3-none-any.whl
+
+# or straight from this repo
+pip install -e clients/python
 ```
 
 Requires Python 3.10+.
@@ -106,6 +113,6 @@ clients/python/scripts/regenerate.sh
 ```
 
 The script dumps the spec via `bun scripts/dump-openapi.ts` (the same document
-served at `/api/docs/openapi.json`) and runs `datamodel-codegen` over it. Both
-`openapi.json` and `_models.py` are committed so the client builds without a
-running server.
+served at `/api/docs/openapi.json`) and runs `datamodel-codegen` over it. Only
+`_models.py` is committed, so the client builds and installs without a running
+server; `openapi.json` is a regenerated, gitignored artifact.
