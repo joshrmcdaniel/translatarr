@@ -1,0 +1,78 @@
+name: Publish Python client
+
+# Builds the translatarr-client sdist + wheel and attaches them to the GitHub
+# Release for each v* tag (the same tags that release the app). The package
+# version is taken from the tag, so a v1.2.3 tag publishes translatarr-client
+# 1.2.3. GitHub Packages has no Python registry, so the artifacts live on the
+# Release; install them by URL (see clients/python/README.md).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 1.2.3). Required for manual runs."
+        required: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create/update the Release and upload the assets
+    defaults:
+      run:
+        working-directory: clients/python
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            echo "::error::Provide a 'version' input for manual runs."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building translatarr-client ${VERSION}"
+
+      - name: Stamp version into the package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i -E "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
+          sed -i -E "s/^__version__ = \".*\"/__version__ = \"${VERSION}\"/" src/translatarr/__init__.py
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Verify the built wheel matches the version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ls -1 dist/
+          test -f "dist/translatarr_client-${VERSION}-py3-none-any.whl"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: translatarr-client-${{ steps.version.outputs.version }}
+          path: clients/python/dist/*
+
+      - name: Attach to the GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: clients/python/dist/*
+          fail_on_unmatched_files: true

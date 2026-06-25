@@ -18,6 +18,7 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 - **Provider-agnostic** — works with any OpenAI-compatible API (OpenAI, OpenRouter, local llama.cpp/Ollama gateways, …) or the Anthropic API
 - **Multi-user** — admin and user roles; the admin configures the instance provider/credentials, each user can override the model and system prompt for themselves
 - **API keys** — mint personal bearer tokens to call the translation API from scripts or other apps (optional expiry, revocable any time)
+- **MCP server** — a built-in Model Context Protocol endpoint at `/api/mcp`, so AI assistants (Claude Code, Claude Desktop, …) can translate and manage chats as tools
 - **Localized UI** — the interface is available in several languages; defaults to your browser language, switchable per user in Settings
 - **PWA** — add it to your phone's home screen and it runs as a standalone app
 - **29 languages** — Arabic, Cantonese, Chinese (Mandarin), Czech, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Khmer, Korean, Mongolian, Persian (Farsi), Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Thai, Ukrainian, Vietnamese — plus auto-detect
@@ -127,6 +128,17 @@ curl https://your-host/api/translate \
 `sourceLang` may be `auto`; `targetLang` must be a concrete language. The response is the structured translation JSON (ranked options, glossary, romanization, back-translation). Revoke a key any time from the same screen — clients using it stop working immediately.
 
 Interactive API reference (Swagger UI) lives at **`/api/docs`** while logged in, with the raw OpenAPI spec at `/api/docs/openapi.json`. Both require a session — they aren't public.
+
+### MCP (use Translatarr from an AI assistant)
+
+Translatarr exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP at **`/api/mcp`**, so MCP-capable assistants (Claude Code, Claude Desktop, …) can translate and manage chats as tools. Authenticate with a personal API key (same `tra_` token as above):
+
+```bash
+claude mcp add --transport http translatarr https://your-host/api/mcp \
+  --header "Authorization: Bearer tra_xxxxxxxxxxxx"
+```
+
+Available tools: `translate`, `list_chats`, `get_chat`, `create_chat`, `add_turn`, and `list_languages`. Each acts as the key's owner, scoped to that user's chats.
 
 ### Behind a reverse proxy / PWA install
 

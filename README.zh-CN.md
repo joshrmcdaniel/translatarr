@@ -18,6 +18,7 @@
 - **与服务商无关** — 兼容任何 OpenAI 兼容 API（OpenAI、OpenRouter、本地 llama.cpp/Ollama 网关等）以及 Anthropic API
 - **多用户** — 区分管理员和普通用户角色；管理员配置实例级的服务商和凭证，每个用户可以为自己单独覆盖模型和系统提示词
 - **API 密钥** — 生成个人 Bearer 令牌，即可从脚本或其他应用中调用翻译 API（可选设置过期时间，并可随时吊销）
+- **MCP 服务** — 内置的 Model Context Protocol（模型上下文协议）端点，位于 `/api/mcp`，让 AI 助手（Claude Code、Claude Desktop 等）能以工具形式进行翻译和管理聊天
 - **本地化界面** — 界面支持多种语言；默认跟随浏览器语言，每个用户可在"设置"中自行切换
 - **PWA** — 可添加到手机主屏幕，作为独立应用运行
 - **29 种语言** — 阿拉伯语、粤语、中文（普通话）、捷克语、荷兰语、英语、芬兰语、法语、德语、希腊语、希伯来语、匈牙利语、印尼语、意大利语、日语、高棉语、韩语、蒙古语、波斯语、波兰语、葡萄牙语、罗马尼亚语、俄语、西班牙语、瑞典语、他加禄语、泰语、乌克兰语、越南语 — 另支持自动检测
@@ -127,6 +128,17 @@ curl https://your-host/api/translate \
 `sourceLang` 可以设为 `auto`；`targetLang` 必须是具体的语言。响应为结构化的翻译 JSON（排序的翻译选项、关键词对照表、罗马音、回译）。你可以随时在同一界面吊销某个密钥 — 正在使用它的客户端会立即停止工作。
 
 登录后可在 **`/api/docs`** 访问交互式 API 参考文档（Swagger UI），原始 OpenAPI 规范位于 `/api/docs/openapi.json`。两者都需要登录会话 — 并非公开访问。
+
+### MCP（在 AI 助手中使用 Translatarr）
+
+Translatarr 通过 Streamable HTTP 在 **`/api/mcp`** 上提供一个 [Model Context Protocol](https://modelcontextprotocol.io)（模型上下文协议）服务，让支持 MCP 的助手（Claude Code、Claude Desktop 等）能以工具形式进行翻译和管理聊天。使用个人 API 密钥进行认证（与上文相同的 `tra_` 令牌）：
+
+```bash
+claude mcp add --transport http translatarr https://your-host/api/mcp \
+  --header "Authorization: Bearer tra_xxxxxxxxxxxx"
+```
+
+可用工具：`translate`、`list_chats`、`get_chat`、`create_chat`、`add_turn` 和 `list_languages`。每个工具都以密钥所有者的身份运行，并限定在该用户的聊天记录范围内。
 
 ### 反向代理 / PWA 安装
 
