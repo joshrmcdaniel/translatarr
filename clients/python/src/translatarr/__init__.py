@@ -12,6 +12,8 @@ pydantic response models generated from the server's OpenAPI spec.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version as _package_version
+
 from ._errors import (
     APIError,
     AuthenticationError,
@@ -37,7 +39,10 @@ from .aio import AsyncTranslatarrClient
 from .client import TranslatarrClient
 from .languages import AUTO_DETECT, SUPPORTED_LANGUAGE_CODES, SourceLang, TargetLang
 
-__version__ = "0.1.0"
+try:
+    __version__ = _package_version("translatarr-client")
+except PackageNotFoundError:  # running from a source checkout without an install
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "__version__",
