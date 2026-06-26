@@ -10,7 +10,11 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "swagger:ui": "bun scripts/copy-swagger-ui.mjs",
-    "openapi:dump": "bun scripts/dump-openapi.ts"
+    "openapi:dump": "bun scripts/dump-openapi.ts",
+    "clients:regen:python": "clients/python/scripts/regenerate.sh",
+    "clients:regen:ts": "clients/typescript/scripts/regenerate.sh",
+    "clients:regen:rust": "clients/rust/scripts/regenerate.sh",
+    "clients:regen": "bun run clients:regen:python && bun run clients:regen:ts && bun run clients:regen:rust"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
