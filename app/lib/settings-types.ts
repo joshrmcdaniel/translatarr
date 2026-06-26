@@ -82,6 +82,8 @@ export type SpeechEffectiveView = {
 
 /** What the settings API exposes to the UI. API keys are never returned. */
 export type SettingsView = {
+  /** The running Translatarr app version (from package.json). */
+  version: string;
   /** The user's UI-language preference; `null` = follow the browser language. */
   locale: Locale | null;
   user: UserLLMPrefs;

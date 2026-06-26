@@ -23,6 +23,7 @@ import {
   updateTurnBodySchema,
 } from "./request-schemas";
 import { translationResponseSchema } from "./translation-schema";
+import { APP_VERSION } from "./version";
 
 function jsonSchemaOf(schema: z.ZodType): Record<string, unknown> {
   const json = z.toJSONSchema(schema) as Record<string, unknown>;
@@ -72,7 +73,7 @@ export function buildOpenApiDocument() {
     openapi: "3.1.0",
     info: {
       title: "Translatarr API",
-      version: "1.0.0",
+      version: APP_VERSION,
       description:
         "Programmatic access to Translatarr. Authenticate with a personal API key " +
         "(`Authorization: Bearer <token>`, minted under Settings → API keys) or the " +

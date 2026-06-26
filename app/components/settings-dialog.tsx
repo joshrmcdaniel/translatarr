@@ -513,6 +513,8 @@ export function SettingsDialog({
             </button>
           </div>
         </footer>
+
+        {settings ? <p className="settings-version">Translatarr v{settings.version}</p> : null}
       </div>
     </div>
   );

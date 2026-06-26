@@ -1260,6 +1260,17 @@ select:focus {
   gap: 8px;
 }
 
+.settings-version {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink-3);
+  font-family: var(--font-mono-stack);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--text-low);
+}
+
 .user-list {
   display: grid;
   gap: 8px;

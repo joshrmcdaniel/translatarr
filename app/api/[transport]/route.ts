@@ -12,12 +12,13 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { verifyTranslatarrToken } from "../../lib/mcp/auth";
 import { registerTranslatarrTools } from "../../lib/mcp/tools";
+import { APP_VERSION } from "../../lib/version";
 
 export const runtime = "nodejs";
 
 const handler = createMcpHandler(
   registerTranslatarrTools,
-  { serverInfo: { name: "translatarr", version: "0.2.0" } },
+  { serverInfo: { name: "translatarr", version: APP_VERSION } },
   { basePath: "/api", maxDuration: 120 },
 );
 

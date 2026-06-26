@@ -9,6 +9,7 @@
 import { getDb } from "./db";
 import { resolveLocale, type Locale } from "./i18n/messages";
 import type { User } from "./user-store";
+import { APP_VERSION } from "./version";
 import {
   llmProviders,
   speechEngines,
@@ -207,6 +208,7 @@ export function getSettingsView(user: User): SettingsView {
   const speechEffective = resolveSpeechSettings(user.id);
 
   return {
+    version: APP_VERSION,
     locale: getUserLocale(user.id),
     user: getUserPrefs(user.id),
     effective: {
