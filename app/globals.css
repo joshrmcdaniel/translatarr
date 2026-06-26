@@ -1185,7 +1185,7 @@ select:focus {
   width: 100%;
 }
 
-.settings-field input,
+.settings-field input:not([type="checkbox"]),
 .settings-field textarea {
   width: 100%;
   min-height: 38px;
@@ -1203,10 +1203,27 @@ select:focus {
   resize: vertical;
 }
 
-.settings-field input:focus,
+.settings-field input:not([type="checkbox"]):focus,
 .settings-field textarea:focus {
   border-color: var(--vermilion);
   box-shadow: 0 0 0 3px rgb(255 92 61 / 15%);
+}
+
+/*
+ * Toggles inside a settings field (e.g. "Remove stored key on save") have long
+ * labels. The base .toggle is white-space: nowrap, which forced one line and
+ * pushed the dialog wider than the viewport on phones (horizontal scroll). Let
+ * the label wrap, top-align the checkbox against the first line, and keep the
+ * checkbox from shrinking. (The text-input rule above excludes [type=checkbox]
+ * so the box keeps its base 17px size rather than stretching to full width.)
+ */
+.settings-field .toggle {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.settings-field .toggle input {
+  flex-shrink: 0;
 }
 
 .field-hint {
