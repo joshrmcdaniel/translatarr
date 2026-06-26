@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (body.expiresAt && body.expiresAt < new Date().toISOString()) {
+  if (body.expiresAt && Date.parse(body.expiresAt) < Date.now()) {
     return NextResponse.json({ error: "Expiry must be in the future." }, { status: 400 });
   }
 

@@ -99,7 +99,7 @@ export function resolveApiKeyUser(token: string): User | null {
     return null;
   }
 
-  if (row.expires_at !== null && row.expires_at < new Date().toISOString()) {
+  if (row.expires_at !== null && Date.parse(row.expires_at) <= Date.now()) {
     getDb().prepare("DELETE FROM api_keys WHERE id = ?").run(row.id);
     return null;
   }

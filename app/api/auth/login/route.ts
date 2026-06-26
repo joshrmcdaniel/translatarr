@@ -5,7 +5,7 @@ import { getUserAuthByUsername } from "../../../lib/user-store";
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),
-  password: z.string().min(1),
+  password: z.string().min(1).max(200),
 });
 
 export async function POST(request: Request) {
