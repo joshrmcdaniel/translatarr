@@ -50,8 +50,8 @@ jobs:
       - name: Stamp version into the package
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          # Only pyproject.toml needs stamping — __version__ reads installed metadata.
           sed -i -E "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
-          sed -i -E "s/^__version__ = \".*\"/__version__ = \"${VERSION}\"/" src/translatarr/__init__.py
 
       - name: Build sdist and wheel
         run: |
