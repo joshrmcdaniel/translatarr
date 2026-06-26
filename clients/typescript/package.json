@@ -1,0 +1,42 @@
+{
+  "name": "@joshrmcdaniel/translatarr-client",
+  "version": "0.2.0",
+  "description": "TypeScript client for the Translatarr API.",
+  "license": "AGPL-3.0-or-later",
+  "author": "joshrmcdaniel",
+  "keywords": ["translatarr", "translation", "llm", "api", "client"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joshrmcdaniel/translatarr.git",
+    "directory": "clients/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "regenerate": "./scripts/regenerate.sh"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0"
+  }
+}
