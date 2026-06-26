@@ -1,0 +1,77 @@
+name: Publish TypeScript client
+
+# Builds @joshrmcdaniel/translatarr-client and publishes it to the GitHub
+# Packages npm registry for each v* tag (the same tags that release the app).
+# The package version is taken from the tag, so a v1.2.3 tag publishes
+# translatarr-client 1.2.3. Auth is the workflow's own GITHUB_TOKEN — no secrets
+# to configure (matching the Docker and Python-client workflows).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 1.2.3). Required for manual runs."
+        required: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # publish to the GitHub Packages npm registry
+    defaults:
+      run:
+        working-directory: clients/typescript
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            echo "::error::Provide a 'version' input for manual runs."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building translatarr-client ${VERSION}"
+
+      - name: Stamp version into the package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          npm version "${VERSION}" --no-git-tag-version --allow-same-version
+          sed -i -E "s/export const VERSION = \".*\"/export const VERSION = \"${VERSION}\"/" src/index.ts
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack tarball
+        run: npm pack
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: translatarr-client-${{ steps.version.outputs.version }}
+          path: clients/typescript/*.tgz
+
+      - name: Publish to GitHub Packages
+        if: github.ref_type == 'tag'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

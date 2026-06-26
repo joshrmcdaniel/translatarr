@@ -184,6 +184,18 @@ data
 
 clients/python/.venv
 clients/python/openapi.json
+
+# TypeScript client: regenerated spec, build output, deps, packed tarballs
+clients/typescript/openapi.json
+clients/typescript/dist/
+clients/typescript/node_modules/
+clients/typescript/*.tgz
+
+# Rust client: regenerated spec/schema, build output, lockfile (library crate)
+clients/rust/openapi.json
+clients/rust/schema.json
+clients/rust/target/
+clients/rust/Cargo.lock
 __pycache__
 .venv/
 __pycache__/
