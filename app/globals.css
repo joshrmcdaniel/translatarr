@@ -1836,6 +1836,26 @@ select:focus {
   .user-add-fields {
     grid-template-columns: 1fr;
   }
+
+  /*
+   * The footer's three buttons (reset / cancel / save) don't fit one
+   * space-between row on a phone — Save was pushed off-edge, scrolling the
+   * dialog sideways. Stack instead: keep the destructive reset compact up
+   * top, and let Cancel/Save split a full-width row below.
+   */
+  .settings-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .settings-actions > button {
+    align-self: flex-start;
+  }
+
+  .settings-actions-right > button {
+    flex: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
