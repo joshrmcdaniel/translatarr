@@ -1,0 +1,72 @@
+name: SDK drift check
+
+# Fails if the committed generated SDK models are out of date with the server's
+# OpenAPI schema. Regenerates all three clients (Python, TypeScript, Rust) from
+# the spec and diffs the committed generated files. Path-filtered to the inputs
+# that actually shape the models, so it only runs when they could have changed.
+
+on:
+  pull_request:
+    paths: &inputs
+      - "app/lib/openapi.ts"
+      - "app/lib/translation-schema.ts"
+      - "app/lib/request-schemas.ts"
+      - "app/lib/languages.ts"
+      - "scripts/dump-openapi.ts"
+      - "clients/**"
+      - ".github/workflows/sdk-drift.yml"
+  push:
+    branches: [master]
+    paths: *inputs
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # bun runs the spec dump (app/lib/openapi.ts needs zod from the app deps).
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install app dependencies
+        run: bun install --frozen-lockfile
+
+      # openapi-typescript (TypeScript client codegen).
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install TypeScript client dependencies
+        run: npm --prefix clients/typescript ci
+
+      # datamodel-codegen (Python client codegen).
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install datamodel-code-generator
+        run: pip install datamodel-code-generator
+
+      # cargo-typify + rustfmt (Rust client codegen).
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Install cargo-typify
+        uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall -y cargo-typify
+
+      - name: Regenerate all SDK models
+        run: bun run clients:regen
+
+      - name: Fail if committed models are stale
+        run: |
+          if ! git diff --exit-code -- \
+            clients/python/src/translatarr/_models.py \
+            clients/typescript/src/_schema.ts \
+            clients/rust/src/generated.rs; then
+            echo "::error::Generated SDK models are out of date. Run 'bun run clients:regen' and commit the result."
+            exit 1
+          fi
