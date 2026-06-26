@@ -18,7 +18,7 @@
 - **与服务商无关** — 兼容任何 OpenAI 兼容 API（OpenAI、OpenRouter、本地 llama.cpp/Ollama 网关等）以及 Anthropic API
 - **多用户** — 区分管理员和普通用户角色；管理员配置实例级的服务商和凭证，每个用户可以为自己单独覆盖模型和系统提示词
 - **API 密钥** — 生成个人 Bearer 令牌，即可从脚本或其他应用中调用翻译 API（可选设置过期时间，并可随时吊销）
-- **MCP 服务** — 内置的 Model Context Protocol（模型上下文协议）端点，位于 `/api/mcp`，让 AI 助手（Claude Code、Claude Desktop 等）能以工具形式进行翻译和管理聊天
+- **MCP 服务** — 内置的 Model Context Protocol（模型上下文协议）端点，位于 `/api/mcp`，让 AI 助手（Claude Desktop 等）能以工具形式进行翻译和管理聊天
 - **本地化界面** — 界面支持多种语言；默认跟随浏览器语言，每个用户可在"设置"中自行切换
 - **PWA** — 可添加到手机主屏幕，作为独立应用运行
 - **29 种语言** — 阿拉伯语、粤语、中文（普通话）、捷克语、荷兰语、英语、芬兰语、法语、德语、希腊语、希伯来语、匈牙利语、印尼语、意大利语、日语、高棉语、韩语、蒙古语、波斯语、波兰语、葡萄牙语、罗马尼亚语、俄语、西班牙语、瑞典语、他加禄语、泰语、乌克兰语、越南语 — 另支持自动检测
@@ -131,14 +131,40 @@ curl https://your-host/api/translate \
 
 ### MCP（在 AI 助手中使用 Translatarr）
 
-Translatarr 通过 Streamable HTTP 在 **`/api/mcp`** 上提供一个 [Model Context Protocol](https://modelcontextprotocol.io)（模型上下文协议）服务，让支持 MCP 的助手（Claude Code、Claude Desktop 等）能以工具形式进行翻译和管理聊天。使用个人 API 密钥进行认证（与上文相同的 `tra_` 令牌）：
+Translatarr 通过 Streamable HTTP 在 **`/api/mcp`** 上提供一个 [Model Context Protocol](https://modelcontextprotocol.io)（模型上下文协议）服务，让支持 MCP 的助手（Claude Desktop 等）能以工具形式进行翻译和管理聊天。它使用与 REST API 相同的个人 API 密钥进行认证，因此请先在**设置 → API 密钥**中生成一个 —— `tra_…` 令牌只会显示一次，请当场复制保存。
 
-```bash
-claude mcp add --transport http translatarr https://your-host/api/mcp \
-  --header "Authorization: Bearer tra_xxxxxxxxxxxx"
+**Claude Desktop / 其他 MCP 客户端** —— 仅支持 stdio 的客户端需通过 [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) 桥接器（需要 Node.js）来访问该 HTTP 端点。将以下内容添加到客户端的 MCP 配置中 —— 对于 Claude Desktop 即 `claude_desktop_config.json`（**Settings → Developer → Edit Config**）—— 然后重启客户端：
+
+```json
+{
+  "mcpServers": {
+    "translatarr": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://translatarr.example.com/api/mcp",
+        "--header",
+        "Authorization: Bearer tra_xxxxxxxxxxxx"
+      ]
+    }
+  }
+}
 ```
 
-可用工具：`translate`、`list_chats`、`get_chat`、`create_chat`、`add_turn` 和 `list_languages`。每个工具都以密钥所有者的身份运行，并限定在该用户的聊天记录范围内。
+可用工具：`translate`、`list_chats`、`get_chat`、`create_chat`、`add_turn` 和 `list_languages`。每个工具都以密钥所有者的身份运行，并限定在该用户的聊天记录范围内。对于任何非 localhost 的主机，请通过 HTTPS 提供该端点（参见下文的[反向代理](#反向代理--pwa-安装)）。
+
+连接成功后（Translatarr 会出现在工具/🔌 菜单中），只需用自然语言提问，Claude 就会自动选择合适的工具：
+
+> **你：** 用 translatarr 把 "Where's the nearest train station?" 翻译成日语。
+>
+> **Claude：** *（调用 `translate`）* 最佳选项：一番近い駅はどこですか？（*ichiban chikai eki wa doko desu ka?*）—— 礼貌/中性。回译："Where is the closest station?" ……
+
+> **你：** 在 translatarr 中新建一个名为 "Paris trip" 的法语聊天，并保存 "Two tickets, please." 的翻译。
+>
+> **Claude：** *（先调用 `create_chat`，再调用 `add_turn`）* 已创建聊天并保存该轮翻译 —— 最佳选项：« Deux billets, s'il vous plaît. » ……
+
+通过这种方式创建的聊天与 Translatarr 网页界面中的聊天是同一份，因此你之后可以在网页上打开查看。
 
 ### 反向代理 / PWA 安装
 

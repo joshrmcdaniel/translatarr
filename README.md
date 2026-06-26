@@ -18,7 +18,7 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 - **Provider-agnostic** — works with any OpenAI-compatible API (OpenAI, OpenRouter, local llama.cpp/Ollama gateways, …) or the Anthropic API
 - **Multi-user** — admin and user roles; the admin configures the instance provider/credentials, each user can override the model and system prompt for themselves
 - **API keys** — mint personal bearer tokens to call the translation API from scripts or other apps (optional expiry, revocable any time)
-- **MCP server** — a built-in Model Context Protocol endpoint at `/api/mcp`, so AI assistants (Claude Code, Claude Desktop, …) can translate and manage chats as tools
+- **MCP server** — a built-in Model Context Protocol endpoint at `/api/mcp`, so AI assistants (Claude Desktop, …) can translate and manage chats as tools
 - **Localized UI** — the interface is available in several languages; defaults to your browser language, switchable per user in Settings
 - **PWA** — add it to your phone's home screen and it runs as a standalone app
 - **29 languages** — Arabic, Cantonese, Chinese (Mandarin), Czech, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Khmer, Korean, Mongolian, Persian (Farsi), Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Thai, Ukrainian, Vietnamese — plus auto-detect
@@ -131,14 +131,40 @@ Interactive API reference (Swagger UI) lives at **`/api/docs`** while logged in,
 
 ### MCP (use Translatarr from an AI assistant)
 
-Translatarr exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP at **`/api/mcp`**, so MCP-capable assistants (Claude Code, Claude Desktop, …) can translate and manage chats as tools. Authenticate with a personal API key (same `tra_` token as above):
+Translatarr exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP at **`/api/mcp`**, so MCP-capable assistants (Claude Desktop, …) can translate and manage chats as tools. It authenticates with the same personal API key as the REST API, so first mint one under **Settings → API keys** — the `tra_…` token is shown once, copy it then.
 
-```bash
-claude mcp add --transport http translatarr https://your-host/api/mcp \
-  --header "Authorization: Bearer tra_xxxxxxxxxxxx"
+**Claude Desktop / other MCP clients** — clients that only speak stdio reach the HTTP endpoint through the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridge (needs Node.js). Add this to the client's MCP config — for Claude Desktop that's `claude_desktop_config.json` (**Settings → Developer → Edit Config**) — then restart it:
+
+```json
+{
+  "mcpServers": {
+    "translatarr": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://translatarr.example.com/api/mcp",
+        "--header",
+        "Authorization: Bearer tra_xxxxxxxxxxxx"
+      ]
+    }
+  }
+}
 ```
 
-Available tools: `translate`, `list_chats`, `get_chat`, `create_chat`, `add_turn`, and `list_languages`. Each acts as the key's owner, scoped to that user's chats.
+Available tools: `translate`, `list_chats`, `get_chat`, `create_chat`, `add_turn`, and `list_languages`. Each acts as the key's owner, scoped to that user's chats. Serve the endpoint over HTTPS (see [reverse proxy](#behind-a-reverse-proxy--pwa-install) below) for any non-localhost host.
+
+Once it's connected (Translatarr shows up under the tools/🔌 menu), just ask in plain language and Claude picks the right tool:
+
+> **You:** Use translatarr to translate "Where's the nearest train station?" into Japanese.
+>
+> **Claude:** *(calls `translate`)* Top option: 一番近い駅はどこですか？ (*ichiban chikai eki wa doko desu ka?*) — polite/neutral. Back-translation: "Where is the closest station?" …
+
+> **You:** Start a French chat in translatarr called "Paris trip" and save a translation of "Two tickets, please."
+>
+> **Claude:** *(calls `create_chat`, then `add_turn`)* Created the chat and saved the turn — top option: « Deux billets, s'il vous plaît. » …
+
+Chats you create this way are the same ones in the Translatarr web UI, so you can open them there afterward.
 
 ### Behind a reverse proxy / PWA install
 
