@@ -1,0 +1,73 @@
+name: Publish Rust client
+
+# Builds and tests the translatarr-client crate and attaches a packaged `.crate`
+# to the GitHub Release for each v* tag (the same tags that release the app). The
+# crate version is taken from the tag, so a v1.2.3 tag publishes
+# translatarr-client 1.2.3. It is consumed as a git dependency pinned to the tag
+# (see clients/rust/README.md); crates.io publishing is intentionally not wired
+# up because it would require a registry-token secret — this workflow uses no
+# secrets, matching the Docker and Python/TypeScript client workflows.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 1.2.3). Required for manual runs."
+        required: false
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create/update the Release and upload the asset
+    defaults:
+      run:
+        working-directory: clients/rust
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            echo "::error::Provide a 'version' input for manual runs."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Building translatarr-client ${VERSION}"
+
+      - name: Stamp version into the crate
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Only Cargo.toml needs stamping — `VERSION` reads CARGO_PKG_VERSION.
+          sed -i -E "0,/^version = \".*\"/s//version = \"${VERSION}\"/" Cargo.toml
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Package crate
+        run: cargo package --allow-dirty
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: translatarr-client-${{ steps.version.outputs.version }}
+          path: clients/rust/target/package/*.crate
+
+      - name: Attach to the GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: clients/rust/target/package/*.crate
+          fail_on_unmatched_files: true

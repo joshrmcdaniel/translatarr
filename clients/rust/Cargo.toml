@@ -1,0 +1,21 @@
+[package]
+name = "translatarr-client"
+version = "0.2.0"
+edition = "2021"
+description = "Async Rust client for the Translatarr API."
+license = "AGPL-3.0-or-later"
+authors = ["joshrmcdaniel"]
+keywords = ["translatarr", "translation", "llm", "client"]
+categories = ["api-bindings"]
+repository = "https://github.com/joshrmcdaniel/translatarr"
+readme = "README.md"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+thiserror = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
