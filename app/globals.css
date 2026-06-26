@@ -1122,6 +1122,15 @@ select:focus {
   max-height: calc(100vh - 48px);
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
+  /*
+   * Lock the horizontal axis. The dialog is its own scroll container, so any
+   * child a hair too wide (a long token, a native select's truncated option,
+   * an odd locale string) would otherwise give it a sideways scroll. Content
+   * is built to wrap/clip within the width, so hiding overflow-x never loses
+   * anything the user needs — it just pins the dialog like the chat page pins
+   * the body on mobile.
+   */
+  overflow-x: hidden;
   overscroll-behavior: contain;
   border: 1px solid var(--ink-3);
   border-radius: 14px;
