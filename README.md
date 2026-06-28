@@ -1,6 +1,8 @@
 # <img width="24px" src="./app/icon.svg" alt="Translatarr"></img> Translatarr
 Structured translations for your homelab. Provider-agnostic LLM translation app with ranked options, glossaries, and back-translation, built on Next.js.
 
+**English** · [中文](README.zh-CN.md)
+
 
 **This is completely vibe-coded. It solves an problem I had. It works fine for me**
 
@@ -19,6 +21,7 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 - **Multi-user** — admin and user roles; the admin configures the instance provider/credentials, each user can override the model and system prompt for themselves
 - **API keys** — mint personal bearer tokens to call the translation API from scripts or other apps (optional expiry, revocable any time)
 - **MCP server** — a built-in Model Context Protocol endpoint at `/api/mcp`, so AI assistants (Claude Desktop, …) can translate and manage chats as tools
+- **Client SDKs** — typed Python, TypeScript, and Rust libraries for the API, generated from the OpenAPI spec and published to PyPI, npm, and crates.io
 - **Localized UI** — the interface is available in several languages; defaults to your browser language, switchable per user in Settings
 - **PWA** — add it to your phone's home screen and it runs as a standalone app
 - **29 languages** — Arabic, Cantonese, Chinese (Mandarin), Czech, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Khmer, Korean, Mongolian, Persian (Farsi), Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Tagalog, Thai, Ukrainian, Vietnamese — plus auto-detect
@@ -90,6 +93,8 @@ Everything can be configured in-app, so environment variables are optional. When
 | `SPEECH_STT_MODEL` | Transcription model | `whisper-1` |
 | `SPEECH_TTS_MODEL` | Text-to-speech model | `gpt-4o-mini-tts` |
 | `SPEECH_TTS_VOICE` | Text-to-speech voice id | `alloy` |
+| `UPDATE_CHECK_ENABLED` | Periodically check GitHub for a newer release and show admins a banner. Set `false` to disable (admins can also toggle it in Settings). | `true` |
+| `UPDATE_CHECK_REPO` | `owner/repo` to poll for releases (override for forks). | `joshrmcdaniel/translatarr` |
 
 Settings resolve per value as: **user preference** → **instance setting (admin)** → **environment variable** → built-in default.
 
@@ -128,6 +133,26 @@ curl https://your-host/api/translate \
 `sourceLang` may be `auto`; `targetLang` must be a concrete language. The response is the structured translation JSON (ranked options, glossary, romanization, back-translation). Revoke a key any time from the same screen — clients using it stop working immediately.
 
 Interactive API reference (Swagger UI) lives at **`/api/docs`** while logged in, with the raw OpenAPI spec at `/api/docs/openapi.json`. Both require a session — they aren't public.
+
+### Client SDKs
+
+Prefer a typed library over raw HTTP? Official clients wrap the documented API with the same `tra_` API-key auth. Their models are generated from the OpenAPI spec, so they can't drift from the server, and they're released in lockstep with the app on every `v*` tag.
+
+| Language | Package | Install |
+| --- | --- | --- |
+| Python (sync + async) | [`translatarr-client`](https://pypi.org/project/translatarr-client/) | `pip install translatarr-client` |
+| TypeScript / JavaScript (zero deps, Node + browser) | [`@joshrmcdaniel/translatarr-client`](https://www.npmjs.com/package/@joshrmcdaniel/translatarr-client) | `npm install @joshrmcdaniel/translatarr-client` |
+| Rust (async, `reqwest`) | [`translatarr-client`](https://crates.io/crates/translatarr-client) | `cargo add translatarr-client` |
+
+```python
+from translatarr import TranslatarrClient
+
+with TranslatarrClient("https://your-host", token="tra_…") as tra:
+    result = tra.translate("Good morning", source_lang="en", target_lang="ja")
+    print(result.translations[0].text)
+```
+
+Each covers the full surface — translate, chats, turns, speech, and key management. See the per-client READMEs for async usage and error handling: [Python](clients/python/README.md) · [TypeScript](clients/typescript/README.md) · [Rust](clients/rust/README.md).
 
 ### MCP (use Translatarr from an AI assistant)
 

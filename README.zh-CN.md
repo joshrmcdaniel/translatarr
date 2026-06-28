@@ -1,6 +1,8 @@
 # <img width="24px" src="./app/icon.svg" alt="Translatarr"></img> Translatarr
 为你的家庭实验室（homelab）打造的结构化翻译工具。与服务商无关的 LLM 翻译应用，提供排序的翻译选项、关键词对照表和回译功能，基于 Next.js 构建。
 
+[English](README.md) · **中文**
+
 
 **本项目完全是"凭感觉写出来的"（vibe-coded）。它解决了我自己遇到的一个问题，对我来说运行良好。**
 
@@ -19,6 +21,7 @@
 - **多用户** — 区分管理员和普通用户角色；管理员配置实例级的服务商和凭证，每个用户可以为自己单独覆盖模型和系统提示词
 - **API 密钥** — 生成个人 Bearer 令牌，即可从脚本或其他应用中调用翻译 API（可选设置过期时间，并可随时吊销）
 - **MCP 服务** — 内置的 Model Context Protocol（模型上下文协议）端点，位于 `/api/mcp`，让 AI 助手（Claude Desktop 等）能以工具形式进行翻译和管理聊天
+- **客户端 SDK** — 提供类型化的 Python、TypeScript 和 Rust 客户端库，均由 OpenAPI 规范生成，并发布到 PyPI、npm 和 crates.io
 - **本地化界面** — 界面支持多种语言；默认跟随浏览器语言，每个用户可在"设置"中自行切换
 - **PWA** — 可添加到手机主屏幕，作为独立应用运行
 - **29 种语言** — 阿拉伯语、粤语、中文（普通话）、捷克语、荷兰语、英语、芬兰语、法语、德语、希腊语、希伯来语、匈牙利语、印尼语、意大利语、日语、高棉语、韩语、蒙古语、波斯语、波兰语、葡萄牙语、罗马尼亚语、俄语、西班牙语、瑞典语、他加禄语、泰语、乌克兰语、越南语 — 另支持自动检测
@@ -128,6 +131,26 @@ curl https://your-host/api/translate \
 `sourceLang` 可以设为 `auto`；`targetLang` 必须是具体的语言。响应为结构化的翻译 JSON（排序的翻译选项、关键词对照表、罗马音、回译）。你可以随时在同一界面吊销某个密钥 — 正在使用它的客户端会立即停止工作。
 
 登录后可在 **`/api/docs`** 访问交互式 API 参考文档（Swagger UI），原始 OpenAPI 规范位于 `/api/docs/openapi.json`。两者都需要登录会话 — 并非公开访问。
+
+### 客户端 SDK
+
+比起手写 HTTP 请求，更想用类型化的库？官方客户端封装了文档化的 API，使用相同的 `tra_` API 密钥认证。它们的数据模型由 OpenAPI 规范生成，因此不会与服务端产生偏差，并随应用在每个 `v*` 标签上同步发布。
+
+| 语言 | 包 | 安装 |
+| --- | --- | --- |
+| Python（同步 + 异步） | [`translatarr-client`](https://pypi.org/project/translatarr-client/) | `pip install translatarr-client` |
+| TypeScript / JavaScript（零依赖，Node + 浏览器） | [`@joshrmcdaniel/translatarr-client`](https://www.npmjs.com/package/@joshrmcdaniel/translatarr-client) | `npm install @joshrmcdaniel/translatarr-client` |
+| Rust（异步，`reqwest`） | [`translatarr-client`](https://crates.io/crates/translatarr-client) | `cargo add translatarr-client` |
+
+```python
+from translatarr import TranslatarrClient
+
+with TranslatarrClient("https://your-host", token="tra_…") as tra:
+    result = tra.translate("Good morning", source_lang="en", target_lang="ja")
+    print(result.translations[0].text)
+```
+
+每个客户端都覆盖完整的功能 — 翻译、聊天、对话轮次、语音和密钥管理。异步用法和错误处理详见各客户端的 README：[Python](clients/python/README.md) · [TypeScript](clients/typescript/README.md) · [Rust](clients/rust/README.md)。
 
 ### MCP（在 AI 助手中使用 Translatarr）
 

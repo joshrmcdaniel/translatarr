@@ -1,3 +1,21 @@
+## Translatarr v0.2.1
+
+**The client SDKs are now installable from their ecosystems' standard public registries — `pip install`, `npm install`, `cargo add` — published from CI with no stored secrets.**
+
+### Added
+
+- **Update notifications.** Translatarr now checks GitHub for newer releases and, when the running instance is behind, shows admins a subtle, dismissible banner — plus a marker on the Settings button — linking to the new release. The check is admin-only and cached server-side (GitHub is polled at most a few times a day), dismissal is remembered per version, and the whole thing can be turned off per-instance under **Settings → Instance settings** or with `UPDATE_CHECK_ENABLED=false` (`UPDATE_CHECK_REPO` overrides the polled repository for forks).
+
+### Changed
+
+- **SDKs published to the public package registries.** Each `v*` tag now publishes the three client SDKs to their canonical registries, so they install like any other dependency: the Python client to **PyPI** (`pip install translatarr-client`), the Rust crate to **crates.io** (`cargo add translatarr-client`), and the TypeScript client to **npmjs.com** (`npm install @joshrmcdaniel/translatarr-client`) in addition to the GitHub Packages registry it already used. Each is published via its registry's **Trusted Publishing** (OIDC) — CI trades a short-lived GitHub identity token for a one-time upload token, so there are still no long-lived secrets to configure, matching the rest of the release pipeline; npm publishes additionally carry provenance attestations generated automatically. The previous distribution paths stay as fallbacks (the GitHub Release wheel/sdist for Python, and the git dependency plus packaged `.crate` for Rust). See each client's README.
+
+### Fixed
+
+- **Python client license metadata.** `translatarr-client` declared its license as the free-text `GNU AFFERO GENERAL PUBLIC LICENSE`, which newer Python packaging tooling deprecates; it now uses the SPDX expression `AGPL-3.0-or-later`, so the metadata is valid and won't be rejected on upload.
+
+---
+
 ## Translatarr v0.2.0
 
 **Versioned edits with conversation branching, plus programmatic API access — personal API keys with bearer-token auth and an authenticated, auto-generated OpenAPI/Swagger reference.**
