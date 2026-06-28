@@ -6,9 +6,14 @@ OpenAPI spec.
 
 ## Install
 
-CI builds the wheel + sdist and attaches them to the GitHub Release for each
-`v*` tag (GitHub Packages has no Python registry, so there is no `pip install`
-from a registry — install from the Release URL):
+```bash
+pip install translatarr-client
+```
+
+Published to [PyPI](https://pypi.org/project/translatarr-client/) for each `v*`
+tag (the version matches the app's tag). The same wheel + sdist are also
+attached to the corresponding GitHub Release, and you can install straight from
+this repo:
 
 ```bash
 # from a published GitHub Release (version matches the app's v* tag)

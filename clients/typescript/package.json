@@ -1,10 +1,16 @@
 {
   "name": "@joshrmcdaniel/translatarr-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript client for the Translatarr API.",
   "license": "AGPL-3.0-or-later",
   "author": "joshrmcdaniel",
-  "keywords": ["translatarr", "translation", "llm", "api", "client"],
+  "keywords": [
+    "translatarr",
+    "translation",
+    "llm",
+    "api",
+    "client"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/joshrmcdaniel/translatarr.git",
@@ -21,7 +27,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "engines": {
     "node": ">=18"

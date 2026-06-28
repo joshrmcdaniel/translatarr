@@ -6,13 +6,20 @@ models generated from the server's OpenAPI spec. One `async` client over
 
 ## Install
 
-Not published to crates.io (that would require a registry token; this repo keeps
-a no-secrets-to-configure setup). Depend on it from git, pinned to a release tag:
+Published to [crates.io](https://crates.io/crates/translatarr-client) for each
+`v*` tag (the version matches the app's tag):
+
+```toml
+[dependencies]
+translatarr-client = "1.2.3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+Or depend on it from git, pinned to a release tag:
 
 ```toml
 [dependencies]
 translatarr-client = { git = "https://github.com/joshrmcdaniel/translatarr", tag = "v1.2.3", package = "translatarr-client" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 Each `v*` release also attaches a packaged `.crate` to the GitHub Release for

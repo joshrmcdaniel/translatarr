@@ -6,9 +6,16 @@ dependencies (uses the platform `fetch`), works in Node 18+ and the browser.
 
 ## Install
 
-Published to the GitHub Packages npm registry for each `v*` tag (the same tags
-that release the app); the package version matches the tag. Point the scope at
-the registry, then install:
+Published to [npmjs.com](https://www.npmjs.com/package/@joshrmcdaniel/translatarr-client)
+for each `v*` tag (the same tags that release the app); the package version
+matches the tag:
+
+```bash
+npm install @joshrmcdaniel/translatarr-client
+```
+
+The same version is also published to the GitHub Packages npm registry; to
+install from there, point the scope at it first:
 
 ```bash
 # .npmrc
