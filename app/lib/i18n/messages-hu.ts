@@ -197,4 +197,7 @@ export const messagesHu: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Visszavonod a(z) {name} kulcsot? Minden kliens, amely használja, leáll.",
   "apiKeys.newKeyTitle": "Másold ki most az új kulcsodat",
   "apiKeys.newKeyWarning": "Csak most az egyszer látod.",
+
+  "updates.available": "Új verzió érhető el: {version}",
+  "updates.checkLabel": "Frissítések keresése",
 };

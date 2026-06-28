@@ -100,6 +100,8 @@ export type SettingsView = {
     baseUrl: string | null;
     systemPrompt: string | null;
     hasStoredApiKey: boolean;
+    /** Whether the periodic GitHub update check is on (resolved: override -> env -> default). */
+    updateCheckEnabled: boolean;
   } | null;
   speech: {
     user: UserSpeechPrefs;

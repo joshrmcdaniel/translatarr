@@ -197,4 +197,7 @@ export const messagesNl: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "{name} intrekken? Elke client die hem gebruikt, stopt met werken.",
   "apiKeys.newKeyTitle": "Kopieer nu je nieuwe sleutel",
   "apiKeys.newKeyWarning": "Dit is de enige keer dat je hem ziet.",
+
+  "updates.available": "Nieuwe versie beschikbaar: {version}",
+  "updates.checkLabel": "Controleren op updates",
 };

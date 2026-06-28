@@ -197,4 +197,7 @@ export const messagesKm: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "ដកហូត {name}? កម្មវិធីណាដែលប្រើវានឹងឈប់ដំណើរការ។",
   "apiKeys.newKeyTitle": "ចម្លងសោថ្មីរបស់អ្នកឥឡូវនេះ",
   "apiKeys.newKeyWarning": "នេះជាពេលតែមួយគត់ដែលអ្នកនឹងឃើញវា។",
+
+  "updates.available": "មានកំណែថ្មី៖ {version}",
+  "updates.checkLabel": "ពិនិត្យរកការអាប់ដេត",
 };

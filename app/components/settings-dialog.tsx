@@ -29,6 +29,7 @@ type InstanceForm = {
   speechSttModel: string;
   speechTtsModel: string;
   speechTtsVoice: string;
+  updateCheckEnabled: boolean;
 };
 
 const emptyUserPrefs: UserPrefsForm = { locale: "", model: "", systemPrompt: "", speechEngine: "" };
@@ -44,6 +45,7 @@ const emptyInstance: InstanceForm = {
   speechSttModel: "",
   speechTtsModel: "",
   speechTtsVoice: "",
+  updateCheckEnabled: true,
 };
 
 export function SettingsDialog({
@@ -51,11 +53,13 @@ export function SettingsDialog({
   onClose,
   isAdmin,
   currentUserId,
+  latestUpdate,
 }: {
   open: boolean;
   onClose: () => void;
   isAdmin: boolean;
   currentUserId: string;
+  latestUpdate: { version: string; releaseUrl: string | null } | null;
 }) {
   const { t, setLocale } = useI18n();
   const [payload, setPayload] = useState<SettingsPayload | null>(null);
@@ -112,6 +116,7 @@ export function SettingsDialog({
       speechSttModel: fetched.settings.speech.instance?.sttModel ?? "",
       speechTtsModel: fetched.settings.speech.instance?.ttsModel ?? "",
       speechTtsVoice: fetched.settings.speech.instance?.ttsVoice ?? "",
+      updateCheckEnabled: fetched.settings.instance?.updateCheckEnabled ?? true,
     });
   }
 
@@ -159,6 +164,7 @@ export function SettingsDialog({
               speechSttModel: instance.speechSttModel.trim() || null,
               speechTtsModel: instance.speechTtsModel.trim() || null,
               speechTtsVoice: instance.speechTtsVoice.trim() || null,
+              updateCheckEnabled: instance.updateCheckEnabled,
               ...apiKeyPatch,
               ...speechApiKeyPatch,
             }),
@@ -380,6 +386,15 @@ export function SettingsDialog({
                       />
                       <small className="field-hint">{t("settings.instancePromptHint")}</small>
                     </label>
+
+                    <label className="toggle">
+                      <input
+                        type="checkbox"
+                        checked={instance.updateCheckEnabled}
+                        onChange={(event) => setInstance({ ...instance, updateCheckEnabled: event.target.checked })}
+                      />
+                      <span>{t("updates.checkLabel")}</span>
+                    </label>
                   </div>
                 </section>
 
@@ -514,7 +529,26 @@ export function SettingsDialog({
           </div>
         </footer>
 
-        {settings ? <p className="settings-version">Translatarr v{settings.version}</p> : null}
+        {latestUpdate ? (
+          <p className="settings-update-notice">
+            <a href={latestUpdate.releaseUrl ?? "https://github.com/joshrmcdaniel/translatarr"} target="_blank" rel="noreferrer">
+              {t("updates.available", { version: latestUpdate.version })}
+            </a>
+          </p>
+        ) : null}
+
+        {settings ? (
+          <p className="settings-version">
+            <a
+              className="settings-version-link"
+              href="https://github.com/joshrmcdaniel/translatarr"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Translatarr v{settings.version}
+            </a>
+          </p>
+        ) : null}
       </div>
     </div>
   );

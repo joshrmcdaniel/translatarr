@@ -197,4 +197,7 @@ export const messagesTl: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Bawiin ang {name}? Hihinto sa paggana ang anumang client na gumagamit nito.",
   "apiKeys.newKeyTitle": "Kopyahin ang iyong bagong key ngayon",
   "apiKeys.newKeyWarning": "Ito lang ang tanging pagkakataong makikita mo ito.",
+
+  "updates.available": "May bagong bersyon: {version}",
+  "updates.checkLabel": "Tingnan kung may update",
 };

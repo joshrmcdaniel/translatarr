@@ -197,4 +197,7 @@ export const messagesVi: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Thu hồi {name}? Mọi ứng dụng đang dùng nó sẽ ngừng hoạt động.",
   "apiKeys.newKeyTitle": "Sao chép khóa mới của bạn ngay",
   "apiKeys.newKeyWarning": "Đây là lần duy nhất bạn thấy nó.",
+
+  "updates.available": "Đã có phiên bản mới: {version}",
+  "updates.checkLabel": "Kiểm tra cập nhật",
 };

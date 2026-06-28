@@ -197,4 +197,7 @@ export const messagesEs: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "¿Revocar {name}? Cualquier cliente que la use dejará de funcionar.",
   "apiKeys.newKeyTitle": "Copia tu nueva clave ahora",
   "apiKeys.newKeyWarning": "Es la única vez que la verás.",
+
+  "updates.available": "Nueva versión disponible: {version}",
+  "updates.checkLabel": "Buscar actualizaciones",
 };

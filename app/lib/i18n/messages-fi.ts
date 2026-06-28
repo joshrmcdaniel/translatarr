@@ -197,4 +197,7 @@ export const messagesFi: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Kumotaanko {name}? Kaikki sitä käyttävät asiakkaat lakkaavat toimimasta.",
   "apiKeys.newKeyTitle": "Kopioi uusi avaimesi nyt",
   "apiKeys.newKeyWarning": "Näet sen vain tämän kerran.",
+
+  "updates.available": "Uusi versio saatavilla: {version}",
+  "updates.checkLabel": "Tarkista päivitykset",
 };

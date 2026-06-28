@@ -197,4 +197,7 @@ export const messagesRu: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Отозвать {name}? Любой клиент, использующий его, перестанет работать.",
   "apiKeys.newKeyTitle": "Скопируйте новый ключ сейчас",
   "apiKeys.newKeyWarning": "Вы увидите его только сейчас.",
+
+  "updates.available": "Доступна новая версия: {version}",
+  "updates.checkLabel": "Проверить обновления",
 };

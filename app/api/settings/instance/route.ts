@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "../../../lib/auth";
-import { getSettingsView, updateSettingsOverrides, updateSpeechOverrides } from "../../../lib/settings-store";
+import {
+  getSettingsView,
+  setUpdateCheckEnabled,
+  updateSettingsOverrides,
+  updateSpeechOverrides,
+} from "../../../lib/settings-store";
 import type { SettingsPayload } from "../../../lib/settings-types";
 import { defaultPromptTemplate } from "../../../lib/translation-service";
 import type { User } from "../../../lib/user-store";
@@ -18,6 +23,7 @@ const instanceSchema = z.object({
   speechSttModel: z.string().trim().max(200).nullable().optional(),
   speechTtsModel: z.string().trim().max(200).nullable().optional(),
   speechTtsVoice: z.string().trim().max(100).nullable().optional(),
+  updateCheckEnabled: z.boolean().nullable().optional(),
 });
 
 function buildPayload(user: User): SettingsPayload {
@@ -46,8 +52,16 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Invalid settings payload." }, { status: 400 });
   }
 
-  const { speechEngine, speechApiKey, speechBaseUrl, speechSttModel, speechTtsModel, speechTtsVoice, ...llmOverrides } =
-    body;
+  const {
+    speechEngine,
+    speechApiKey,
+    speechBaseUrl,
+    speechSttModel,
+    speechTtsModel,
+    speechTtsVoice,
+    updateCheckEnabled,
+    ...llmOverrides
+  } = body;
 
   updateSettingsOverrides(llmOverrides);
   updateSpeechOverrides({
@@ -58,6 +72,10 @@ export async function PUT(request: Request) {
     ttsModel: speechTtsModel,
     ttsVoice: speechTtsVoice,
   });
+
+  if (updateCheckEnabled !== undefined) {
+    setUpdateCheckEnabled(updateCheckEnabled);
+  }
 
   return NextResponse.json(buildPayload(user));
 }

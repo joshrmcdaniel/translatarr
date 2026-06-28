@@ -197,4 +197,7 @@ export const messagesRo: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Revoci {name}? Orice client care o folosește va înceta să funcționeze.",
   "apiKeys.newKeyTitle": "Copiază acum noua cheie",
   "apiKeys.newKeyWarning": "Este singura dată când o vei vedea.",
+
+  "updates.available": "Versiune nouă disponibilă: {version}",
+  "updates.checkLabel": "Caută actualizări",
 };

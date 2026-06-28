@@ -197,4 +197,7 @@ export const messagesTh: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "เพิกถอน {name} หรือไม่? ไคลเอนต์ใดก็ตามที่ใช้งานจะหยุดทำงาน",
   "apiKeys.newKeyTitle": "คัดลอกคีย์ใหม่ของคุณตอนนี้",
   "apiKeys.newKeyWarning": "นี่เป็นครั้งเดียวที่คุณจะเห็นมัน",
+
+  "updates.available": "มีเวอร์ชันใหม่: {version}",
+  "updates.checkLabel": "ตรวจหาการอัปเดต",
 };

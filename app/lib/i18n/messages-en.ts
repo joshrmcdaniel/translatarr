@@ -199,6 +199,9 @@ export const messagesEn = {
   "apiKeys.confirmRevoke": "Revoke {name}? Any client using it will stop working.",
   "apiKeys.newKeyTitle": "Copy your new key now",
   "apiKeys.newKeyWarning": "This is the only time you'll see it.",
+
+  "updates.available": "New version available: {version}",
+  "updates.checkLabel": "Check for updates",
 } as const;
 
 export type MessageKey = keyof typeof messagesEn;

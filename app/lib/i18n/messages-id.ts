@@ -197,4 +197,7 @@ export const messagesId: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Cabut {name}? Setiap klien yang menggunakannya akan berhenti berfungsi.",
   "apiKeys.newKeyTitle": "Salin kunci baru Anda sekarang",
   "apiKeys.newKeyWarning": "Ini satu-satunya kesempatan Anda melihatnya.",
+
+  "updates.available": "Versi baru tersedia: {version}",
+  "updates.checkLabel": "Periksa pembaruan",
 };

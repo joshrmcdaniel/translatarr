@@ -197,4 +197,7 @@ export const messagesMn: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "{name}-г хүчингүй болгох уу? Үүнийг ашиглаж буй бүх клиент ажиллахаа болино.",
   "apiKeys.newKeyTitle": "Шинэ түлхүүрээ одоо хуулна уу",
   "apiKeys.newKeyWarning": "Үүнийг зөвхөн энэ удаа л харна.",
+
+  "updates.available": "Шинэ хувилбар гарлаа: {version}",
+  "updates.checkLabel": "Шинэчлэлтийг шалгах",
 };

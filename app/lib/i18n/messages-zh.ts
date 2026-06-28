@@ -197,4 +197,7 @@ export const messagesZh: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "撤销 {name}？任何正在使用它的客户端都将停止工作。",
   "apiKeys.newKeyTitle": "立即复制您的新密钥",
   "apiKeys.newKeyWarning": "这是您唯一一次看到它。",
+
+  "updates.available": "有新版本可用：{version}",
+  "updates.checkLabel": "检查更新",
 };

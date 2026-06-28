@@ -197,4 +197,7 @@ export const messagesCs: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Odvolat {name}? Každý klient, který jej používá, přestane fungovat.",
   "apiKeys.newKeyTitle": "Zkopírujte si nový klíč hned teď",
   "apiKeys.newKeyWarning": "Uvidíte jej naposledy.",
+
+  "updates.available": "K dispozici je nová verze: {version}",
+  "updates.checkLabel": "Zkontrolovat aktualizace",
 };

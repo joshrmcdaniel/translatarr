@@ -197,4 +197,7 @@ export const messagesKo: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "{name}을(를) 해지하시겠습니까? 이를 사용하는 모든 클라이언트가 작동을 멈춥니다.",
   "apiKeys.newKeyTitle": "지금 새 키를 복사하세요",
   "apiKeys.newKeyWarning": "지금 한 번만 볼 수 있습니다.",
+
+  "updates.available": "새 버전 사용 가능: {version}",
+  "updates.checkLabel": "업데이트 확인",
 };

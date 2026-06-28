@@ -199,4 +199,7 @@ export const messagesFa: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "{name} باطل شود؟ هر کلاینتی که از آن استفاده کند از کار می‌افتد.",
   "apiKeys.newKeyTitle": "اکنون کلید جدید خود را کپی کنید",
   "apiKeys.newKeyWarning": "این تنها باری است که آن را می‌بینید.",
+
+  "updates.available": "نسخه جدید در دسترس است: {version}",
+  "updates.checkLabel": "بررسی به‌روزرسانی‌ها",
 };

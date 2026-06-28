@@ -199,4 +199,7 @@ export const messagesAr: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "إبطال {name}؟ سيتوقف أي عميل يستخدمه عن العمل.",
   "apiKeys.newKeyTitle": "انسخ مفتاحك الجديد الآن",
   "apiKeys.newKeyWarning": "هذه هي المرة الوحيدة التي ستراه فيها.",
+
+  "updates.available": "يتوفر إصدار جديد: {version}",
+  "updates.checkLabel": "التحقق من التحديثات",
 };

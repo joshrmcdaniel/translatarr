@@ -10,13 +10,16 @@ import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types
 import { unlockAudio } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
 import { translationOutputLang, type TranslationOption, type TranslationResponse } from "../lib/translation-schema";
+import type { UpdateStatus } from "../lib/update-check";
 import type { User } from "../lib/user-store";
 import { BrandSeal } from "./brand-seal";
 import { SettingsDialog } from "./settings-dialog";
+import { UpdateBanner } from "./update-banner";
 import { VoiceMode } from "./voice-mode";
 
 const MAX_CHARS = 12000;
 const DEBOUNCE_MS = 1500;
+const UPDATE_DISMISSED_KEY = "translatarr:update-dismissed";
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
@@ -48,6 +51,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [editingTitle, setEditingTitle] = useState(false);
   const [speechConfig, setSpeechConfig] = useState<SpeechEffectiveView | null>(null);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
   const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string } | null>(null);
@@ -93,6 +98,34 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       behavior: "smooth",
     });
   }, [activeChat?.turns.length, previewResult, pendingTurn, activeChat?.id]);
+
+  useEffect(() => {
+    if (user.role !== "admin") {
+      return;
+    }
+
+    setDismissedVersion(localStorage.getItem(UPDATE_DISMISSED_KEY));
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/update-check");
+        if (!response.ok) {
+          return;
+        }
+        const status = (await response.json()) as UpdateStatus;
+        if (!cancelled) {
+          setUpdateStatus(status);
+        }
+      } catch {
+        // The update check is best-effort; ignore failures so it never disrupts the app.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.role]);
 
   useEffect(() => {
     if (!livePreview || !trimmedText) {
@@ -471,8 +504,26 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     return lastTurn.result;
   }
 
+  const updateAvailable = Boolean(updateStatus?.enabled && updateStatus.updateAvailable && updateStatus.latestVersion);
+  const latestUpdate =
+    updateAvailable && updateStatus?.latestVersion
+      ? { version: updateStatus.latestVersion, releaseUrl: updateStatus.releaseUrl }
+      : null;
+  const showUpdateBanner = updateAvailable && updateStatus?.latestVersion !== dismissedVersion;
+
+  function dismissUpdate() {
+    if (!updateStatus?.latestVersion) {
+      return;
+    }
+    localStorage.setItem(UPDATE_DISMISSED_KEY, updateStatus.latestVersion);
+    setDismissedVersion(updateStatus.latestVersion);
+  }
+
   return (
     <main className="app-shell">
+      {showUpdateBanner && latestUpdate ? (
+        <UpdateBanner version={latestUpdate.version} releaseUrl={latestUpdate.releaseUrl} onDismiss={dismissUpdate} />
+      ) : null}
       <section className="chat-workspace with-sidebar" aria-label={t("translator.translationChats")}>
         {sidebarOpen ? (
           <div className="sidebar-backdrop" aria-hidden="true" onClick={() => setSidebarOpen(false)} />
@@ -519,8 +570,13 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <small>{t(user.role === "admin" ? "users.badgeAdmin" : "users.badgeUser")}</small>
             </div>
             <div className="sidebar-footer-actions">
-              <button type="button" className="ghost-button" onClick={() => setSettingsOpen(true)}>
+              <button
+                type="button"
+                className={updateAvailable ? "ghost-button has-update" : "ghost-button"}
+                onClick={() => setSettingsOpen(true)}
+              >
                 {t("common.settings")}
+                {updateAvailable ? <span className="update-dot" aria-hidden="true" /> : null}
               </button>
               <button type="button" className="ghost-button" onClick={onLogout}>
                 {t("translator.logOut")}
@@ -796,6 +852,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
         onClose={() => setSettingsOpen(false)}
         isAdmin={user.role === "admin"}
         currentUserId={user.id}
+        latestUpdate={latestUpdate}
       />
 
       {voiceModeOpen && speechConfig ? (

@@ -197,4 +197,7 @@ export const messagesSv: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Återkalla {name}? Alla klienter som använder den slutar fungera.",
   "apiKeys.newKeyTitle": "Kopiera din nya nyckel nu",
   "apiKeys.newKeyWarning": "Det här är enda gången du ser den.",
+
+  "updates.available": "Ny version tillgänglig: {version}",
+  "updates.checkLabel": "Sök efter uppdateringar",
 };

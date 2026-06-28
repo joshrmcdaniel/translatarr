@@ -86,6 +86,31 @@ function applyKeyValuePatch(patch: Record<string, string | null | undefined>, ta
   })();
 }
 
+/** Read a single raw `app_settings` value, or `null` when unset. */
+export function getAppSetting(key: string): string | null {
+  const row = getDb().prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+/** Write (or, for `null`/empty, clear) a single raw `app_settings` value. */
+export function setAppSetting(key: string, value: string | null): void {
+  applyKeyValuePatch({ [key]: value }, "app_settings");
+}
+
+/** Resolved on/off for the periodic update check: instance override -> env -> default (on). */
+export function resolveUpdateCheckEnabled(): boolean {
+  const override = getAppSetting("update.checkEnabled");
+  if (override !== null) {
+    return override === "true";
+  }
+  return process.env.UPDATE_CHECK_ENABLED !== "false";
+}
+
+/** Set the instance-wide update-check override (`null` reverts to the env/default). */
+export function setUpdateCheckEnabled(enabled: boolean | null): void {
+  setAppSetting("update.checkEnabled", enabled === null ? null : String(enabled));
+}
+
 export function getSettingsOverrides(): SettingsOverrides {
   const rows = getDb().prepare("SELECT key, value FROM app_settings").all() as SettingRow[];
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
@@ -225,6 +250,7 @@ export function getSettingsView(user: User): SettingsView {
             baseUrl: instance.baseUrl,
             systemPrompt: instance.systemPrompt,
             hasStoredApiKey: instance.apiKey !== null,
+            updateCheckEnabled: resolveUpdateCheckEnabled(),
           }
         : null,
     speech: {

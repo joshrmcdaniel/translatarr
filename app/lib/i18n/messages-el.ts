@@ -197,4 +197,7 @@ export const messagesEl: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Ανάκληση του {name}; Κάθε εφαρμογή που το χρησιμοποιεί θα σταματήσει να λειτουργεί.",
   "apiKeys.newKeyTitle": "Αντιγράψτε το νέο σας κλειδί τώρα",
   "apiKeys.newKeyWarning": "Είναι η μόνη φορά που θα το δείτε.",
+
+  "updates.available": "Διαθέσιμη νέα έκδοση: {version}",
+  "updates.checkLabel": "Έλεγχος για ενημερώσεις",
 };

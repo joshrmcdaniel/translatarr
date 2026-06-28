@@ -197,4 +197,7 @@ export const messagesYue: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "撤銷 {name}？任何使用緊佢嘅用戶端都會停止運作。",
   "apiKeys.newKeyTitle": "而家就複製你嘅新金鑰",
   "apiKeys.newKeyWarning": "你只會見到佢呢一次。",
+
+  "updates.available": "有新版本：{version}",
+  "updates.checkLabel": "檢查更新",
 };

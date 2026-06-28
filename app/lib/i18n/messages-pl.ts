@@ -197,4 +197,7 @@ export const messagesPl: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "Odwołać {name}? Każdy klient, który go używa, przestanie działać.",
   "apiKeys.newKeyTitle": "Skopiuj teraz swój nowy klucz",
   "apiKeys.newKeyWarning": "Zobaczysz go tylko ten jeden raz.",
+
+  "updates.available": "Dostępna nowa wersja: {version}",
+  "updates.checkLabel": "Sprawdź aktualizacje",
 };

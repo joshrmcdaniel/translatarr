@@ -197,4 +197,7 @@ export const messagesJa: Record<MessageKey, string> = {
   "apiKeys.confirmRevoke": "{name} を取り消しますか？使用中のクライアントは動作しなくなります。",
   "apiKeys.newKeyTitle": "新しいキーを今すぐコピーしてください",
   "apiKeys.newKeyWarning": "表示されるのはこの一度きりです。",
+
+  "updates.available": "新しいバージョンが利用可能です：{version}",
+  "updates.checkLabel": "更新を確認",
 };
