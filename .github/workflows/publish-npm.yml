@@ -1,10 +1,15 @@
 name: Publish TypeScript client
 
-# Builds @joshrmcdaniel/translatarr-client and publishes it to the GitHub
-# Packages npm registry for each v* tag (the same tags that release the app).
-# The package version is taken from the tag, so a v1.2.3 tag publishes
-# translatarr-client 1.2.3. Auth is the workflow's own GITHUB_TOKEN — no secrets
-# to configure (matching the Docker and Python-client workflows).
+# Builds @joshrmcdaniel/translatarr-client and publishes it for each v* tag (the
+# same tags that release the app) to two registries: the GitHub Packages npm
+# registry (auth via the workflow's own GITHUB_TOKEN) and npmjs.com (via npm
+# Trusted Publishing / OIDC — npm CLI >=11.5.1 trades the GitHub OIDC claim for a
+# short-lived token, so no NPM secret is stored and provenance is automatic). The
+# package version is taken from the tag, so a v1.2.3 tag publishes
+# translatarr-client 1.2.3; neither path needs a stored secret. NOTE: npmjs.com
+# (like crates.io) has no pending-publisher flow, so the *first* npmjs.com release
+# must be published manually to create the package; its trusted publisher (this
+# workflow file + the `npm` environment below) is configured only afterwards.
 
 on:
   push:
@@ -75,3 +80,55 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish the same package to npmjs.com via Trusted Publishing (OIDC). npm CLI
+  # >=11.5.1 auto-detects the GitHub OIDC token, so there is no NODE_AUTH_TOKEN /
+  # NPM secret and provenance attestations are generated automatically. The job
+  # is self-contained (rebuilds from the re-stamped source) so it can drop the
+  # GitHub-Packages registry pin without disturbing the job above. Tags only.
+  publish-npmjs:
+    needs: build-and-publish
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@joshrmcdaniel/translatarr-client
+    permissions:
+      contents: read # read source for the provenance attestation
+      id-token: write # mint the OIDC token npmjs.com exchanges for an upload token
+    defaults:
+      run:
+        working-directory: clients/typescript
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Ensure npm supports Trusted Publishing
+        run: npm install -g npm@latest # OIDC publishing requires npm >= 11.5.1
+
+      - name: Stamp version into the package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "${VERSION}" --no-git-tag-version --allow-same-version
+          sed -i -E "s/export const VERSION = \".*\"/export const VERSION = \"${VERSION}\"/" src/index.ts
+
+      - name: Target npmjs.com instead of GitHub Packages
+        # publishConfig.registry pins publishing to GitHub Packages; drop it so
+        # this publish goes to the npmjs registry set by setup-node's .npmrc.
+        run: npm pkg delete publishConfig.registry
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npmjs.com
+        run: npm publish --access public

@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # create/update the Release and upload the assets
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     defaults:
       run:
         working-directory: clients/python
@@ -76,3 +78,30 @@ jobs:
         with:
           files: clients/python/dist/*
           fail_on_unmatched_files: true
+
+  # Publish the same artifacts to PyPI via Trusted Publishing (OIDC) — no API
+  # token to configure, matching the rest of the repo's no-secrets ethos. The
+  # PyPI project's trusted publisher must name this workflow (publish-python.yml)
+  # and the `pypi` environment below. Tags only; manual test builds stop at the
+  # uploaded artifact above.
+  publish-pypi:
+    needs: build-and-release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/translatarr-client/
+    permissions:
+      id-token: write # mint the OIDC token PyPI exchanges for an upload token
+
+    steps:
+      - name: Download the built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: translatarr-client-${{ needs.build-and-release.outputs.version }}
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
