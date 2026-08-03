@@ -54,7 +54,7 @@ A browser session cookie works too, via `{ sessionCookie: "…" }` instead of
 | --------- | ------- |
 | Translate | `translate` |
 | Chats     | `listChats`, `createChat`, `getChat`, `renameChat`, `clearChat`, `deleteChat` |
-| Turns     | `addTurn`, `selectOption`, `retranslateTurn`, `switchBranch` |
+| Turns     | `addTurn`, `listTurns`, `selectOption`, `retranslateTurn`, `switchBranch` |
 | Speech    | `transcribe`, `synthesize` |
 | API keys  | `listKeys`, `createKey`, `revokeKey` |
 

@@ -30,5 +30,8 @@ export type ChatTurn = {
 };
 
 export type ChatDetail = ChatSummary & {
+  /** Turns of the active branch, oldest first — possibly a window of the most recent ones (see totalTurns). */
   turns: ChatTurn[];
+  /** Total turns on the active branch, independent of any window applied to `turns`. */
+  totalTurns: number;
 };

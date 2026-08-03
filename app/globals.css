@@ -584,7 +584,18 @@ select:focus {
 .preview-turn {
   display: grid;
   gap: 12px;
+}
+
+/* Entry animation only for turns just added (and live previews) — a stored chat
+   rendering all at once must not composite a stack of simultaneous animations. */
+.preview-turn,
+.conversation-turn.turn-enter {
   animation: rise 0.45s var(--ease-out) both;
+}
+
+.timeline-older-loading {
+  text-align: center;
+  padding: 2px 0 6px;
 }
 
 /* the request slip — ink card, vermilion edge */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../lib/api-error";
 import type { ChatDetail, ChatSummary, ChatTurn } from "../lib/chat-types";
 import { apiErrorMessage, speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
@@ -20,6 +20,10 @@ import { VoiceMode } from "./voice-mode";
 const MAX_CHARS = 12000;
 const DEBOUNCE_MS = 1500;
 const UPDATE_DISMISSED_KEY = "translatarr:update-dismissed";
+/** Turns fetched per page; the timeline starts on the newest page and loads older ones on scroll. */
+const TURN_PAGE_SIZE = 10;
+/** How close to the timeline's top (px) the user must scroll before the next older page loads. */
+const OLDER_TURNS_SCROLL_THRESHOLD = 240;
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
@@ -53,11 +57,18 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
+  const [loadingOlderTurns, setLoadingOlderTurns] = useState(false);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
   const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string } | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const dictationBase = useRef("");
+  /** Ids of turns added since the last render of the whole chat; only these play the entry animation. */
+  const freshTurnIds = useRef<Set<string>>(new Set());
+  /** Timeline scroll metrics captured just before older turns are prepended, to keep the view anchored. */
+  const olderTurnsAnchor = useRef<{ height: number; top: number } | null>(null);
+  /** The chat the timeline last auto-scrolled for; a change means jump instantly instead of smoothly. */
+  const autoScrolledChatId = useRef<string | null>(null);
 
   const speechInput = useSpeechInput(speechConfig);
   const speechOutput = useSpeechOutput(speechConfig);
@@ -66,7 +77,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const isTooLong = text.length > MAX_CHARS;
   const canSend = Boolean(trimmedText) && !isTooLong && sendStatus !== "loading";
   const latestResult = previewResult ?? activeChat?.turns.at(-1)?.result ?? null;
-  const languageLocked = (activeChat?.turns.length ?? 0) > 0;
+  const languageLocked = (activeChat?.totalTurns ?? 0) > 0;
+  const lastTurnId = activeChat?.turns.at(-1)?.id ?? null;
+  const hasOlderTurns = activeChat !== null && activeChat.turns.length < activeChat.totalTurns;
 
   useEffect(() => {
     void initializeChats();
@@ -92,12 +105,42 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     setEditingTitle(false);
   }, [activeChat?.id, activeChat?.title]);
 
+  // Restores the scroll offset after older turns are prepended, before the browser paints,
+  // so the content the user was reading stays put.
+  useLayoutEffect(() => {
+    const anchor = olderTurnsAnchor.current;
+    const timeline = timelineRef.current;
+
+    if (anchor && timeline) {
+      timeline.scrollTop = timeline.scrollHeight - anchor.height + anchor.top;
+      olderTurnsAnchor.current = null;
+    }
+  }, [activeChat?.turns]);
+
+  // Follows the newest content: instantly when a chat is opened, smoothly as turns and
+  // previews arrive. Keyed on the last turn id so prepending older turns never scrolls.
   useEffect(() => {
-    timelineRef.current?.scrollTo({
-      top: timelineRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [activeChat?.turns.length, previewResult, pendingTurn, activeChat?.id]);
+    const timeline = timelineRef.current;
+
+    if (!timeline) {
+      return;
+    }
+
+    const chatId = activeChat?.id ?? null;
+    const behavior: ScrollBehavior = autoScrolledChatId.current === chatId ? "smooth" : "auto";
+    autoScrolledChatId.current = chatId;
+    timeline.scrollTo({ top: timeline.scrollHeight, behavior });
+  }, [activeChat?.id, lastTurnId, previewResult, pendingTurn]);
+
+  // If the first page is too short to overflow the timeline there is no scrollbar to
+  // reach older turns with, so keep loading pages until it overflows or history runs out.
+  useEffect(() => {
+    const timeline = timelineRef.current;
+
+    if (timeline && hasOlderTurns && !loadingOlderTurns && timeline.scrollHeight <= timeline.clientHeight) {
+      void loadOlderTurns();
+    }
+  }, [activeChat?.turns, hasOlderTurns, loadingOlderTurns]);
 
   useEffect(() => {
     if (user.role !== "admin") {
@@ -187,6 +230,47 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     return `${languageLabel(latestResult.detectedSourceLanguage)} - ${Math.round(latestResult.confidence * 100)}%`;
   }, [latestResult, t, languageLabel]);
 
+  /** Marks the turns `next` gained over `previous` as fresh, so only they play the entry animation. */
+  function markFreshTurns(previous: ChatDetail | null, next: ChatDetail) {
+    const knownIds = new Set(previous?.turns.map((turn) => turn.id) ?? []);
+    freshTurnIds.current = new Set(next.turns.filter((turn) => !knownIds.has(turn.id)).map((turn) => turn.id));
+  }
+
+  async function loadOlderTurns() {
+    const chat = activeChat;
+    const timeline = timelineRef.current;
+    const oldest = chat?.turns[0];
+
+    if (!chat || !timeline || !oldest || loadingOlderTurns || !hasOlderTurns) {
+      return;
+    }
+
+    setLoadingOlderTurns(true);
+
+    try {
+      const older = await fetchOlderTurns(chat.id, oldest.id, TURN_PAGE_SIZE);
+
+      if (older.length) {
+        olderTurnsAnchor.current = { height: timeline.scrollHeight, top: timeline.scrollTop };
+        setActiveChat((current) =>
+          current && current.id === chat.id && current.turns[0]?.id === oldest.id
+            ? { ...current, turns: [...older, ...current.turns] }
+            : current,
+        );
+      }
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : t("translator.chatLoadFailed"));
+    } finally {
+      setLoadingOlderTurns(false);
+    }
+  }
+
+  function handleTimelineScroll() {
+    if ((timelineRef.current?.scrollTop ?? Infinity) < OLDER_TURNS_SCROLL_THRESHOLD) {
+      void loadOlderTurns();
+    }
+  }
+
   async function initializeChats() {
     setLoadStatus("loading");
     setError("");
@@ -197,6 +281,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
       if (summaries[0]) {
         const chat = await getChat(summaries[0].id);
+        freshTurnIds.current = new Set();
         setActiveChat(chat);
         setSourceLang(chat.sourceLang);
         setTargetLang(chat.targetLang);
@@ -222,6 +307,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       const chat = await getChat(chatId);
+      freshTurnIds.current = new Set();
       setActiveChat(chat);
       setSourceLang(chat.sourceLang);
       setTargetLang(chat.targetLang);
@@ -274,6 +360,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       const chat = activeChat ?? (await createChat(sourceLang, targetLang));
       const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview);
 
+      markFreshTurns(activeChat, updatedChat);
       setActiveChat(updatedChat);
       setChats((current) => upsertSummary(current, toSummary(updatedChat)));
       setSourceLang(updatedChat.sourceLang);
@@ -315,6 +402,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       const chat = await requestTurnRetranslate(turn.chatId, turn.id, text);
+      markFreshTurns(restoreChat, chat);
       setActiveChat(chat);
       setChats((current) => upsertSummary(current, toSummary(chat)));
     } catch (retranslateError) {
@@ -335,7 +423,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     setError("");
 
     try {
-      setActiveChat(await requestSwitchBranch(turn.chatId, targetId));
+      const chat = await requestSwitchBranch(turn.chatId, targetId);
+      freshTurnIds.current = new Set();
+      setActiveChat(chat);
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : t("common.translationFailed"));
     }
@@ -371,6 +461,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       const chat = await clearChat(activeChat.id);
+      freshTurnIds.current = new Set();
       setActiveChat(chat);
       setChats((current) => upsertSummary(current, toSummary(chat)));
       setLoadStatus("success");
@@ -424,7 +515,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       const chat = await renameChat(activeChat.id, nextTitle);
-      setActiveChat(chat);
+      // The rename response carries a minimal turn window; keep the turns already loaded.
+      setActiveChat((current) =>
+        current && current.id === chat.id ? { ...current, title: chat.title, updatedAt: chat.updatedAt } : current,
+      );
       setChats((current) => upsertSummary(current, toSummary(chat)));
     } catch (renameError) {
       setTitleDraft(activeChat.title);
@@ -492,6 +586,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     }
 
     const updatedChat = await addChatTurn(chat.id, utterance, fromLang, toLang);
+    markFreshTurns(activeChat, updatedChat);
     setActiveChat(updatedChat);
     setChats((current) => upsertSummary(current, toSummary(updatedChat)));
 
@@ -693,7 +788,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               >
                 {t("translator.voice")}
               </button>
-              <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.turns.length}>
+              <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.totalTurns}>
                 {t("common.clear")}
               </button>
               <button type="button" className="ghost-button danger-button" onClick={removeActiveChat} disabled={!activeChat}>
@@ -702,7 +797,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             </div>
           </header>
 
-          <div className="timeline" ref={timelineRef}>
+          <div className="timeline" ref={timelineRef} onScroll={handleTimelineScroll}>
+            {loadingOlderTurns ? <div className="timeline-older-loading subtle">{t("common.loading")}</div> : null}
+
             {loadStatus === "loading" && !activeChat ? (
               <div className="conversation-empty">{t("translator.loadingChats")}</div>
             ) : null}
@@ -719,6 +816,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <ConversationTurn
                 key={entry.id}
                 entry={entry}
+                animateIn={freshTurnIds.current.has(entry.id)}
                 copiedKey={copiedKey}
                 onCopy={copyTranslation}
                 speakingKey={speechOutput.speakingId}
@@ -731,7 +829,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
             ))}
 
             {pendingTurn ? (
-              <section className="conversation-turn">
+              <section className="conversation-turn turn-enter">
                 <div className="user-message">
                   <span className="message-meta">
                     {t("translator.languagePair", {
@@ -901,6 +999,7 @@ async function loadClientSettings(): Promise<ClientSettings | null> {
 
 function ConversationTurn({
   entry,
+  animateIn,
   copiedKey,
   onCopy,
   speakingKey,
@@ -911,6 +1010,8 @@ function ConversationTurn({
   onSwitchBranch,
 }: {
   entry: ChatTurn;
+  /** Play the entry animation — set only for turns just added, not when a stored chat renders. */
+  animateIn: boolean;
   copiedKey: string | null;
   onCopy: (option: TranslationOption, key: string) => void;
   speakingKey: string | null;
@@ -941,7 +1042,7 @@ function ConversationTurn({
   }
 
   return (
-    <section className="conversation-turn">
+    <section className={animateIn ? "conversation-turn turn-enter" : "conversation-turn"}>
       <div className="user-message">
         <div className="message-meta-row">
           <span className="message-meta">
@@ -1225,7 +1326,7 @@ async function createChat(sourceLang: string, targetLang: string) {
 }
 
 async function getChat(chatId: string) {
-  const response = await fetch(`/api/chats/${chatId}`);
+  const response = await fetch(`/api/chats/${chatId}?limit=${TURN_PAGE_SIZE}`);
   const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
 
   if (!response.ok || !payload.chat) {
@@ -1235,8 +1336,20 @@ async function getChat(chatId: string) {
   return payload.chat;
 }
 
+async function fetchOlderTurns(chatId: string, beforeTurnId: string, limit: number) {
+  const params = new URLSearchParams({ before: beforeTurnId, limit: String(limit) });
+  const response = await fetch(`/api/chats/${chatId}/turns?${params}`);
+  const payload = (await response.json()) as { turns?: ChatTurn[]; error?: string };
+
+  if (!response.ok || !payload.turns) {
+    throw new Error(payload.error ?? "Could not load older turns.");
+  }
+
+  return payload.turns;
+}
+
 async function renameChat(chatId: string, title: string) {
-  const response = await fetch(`/api/chats/${chatId}`, {
+  const response = await fetch(`/api/chats/${chatId}?limit=1`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "rename", title }),
@@ -1251,7 +1364,7 @@ async function renameChat(chatId: string, title: string) {
 }
 
 async function clearChat(chatId: string) {
-  const response = await fetch(`/api/chats/${chatId}`, {
+  const response = await fetch(`/api/chats/${chatId}?limit=${TURN_PAGE_SIZE}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "clear" }),
@@ -1281,7 +1394,7 @@ async function addChatTurn(
   targetLang: string,
   precomputedResult: TranslationResponse | null = null,
 ) {
-  const response = await fetch(`/api/chats/${chatId}/turns`, {
+  const response = await fetch(`/api/chats/${chatId}/turns?limit=${TURN_PAGE_SIZE}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, sourceLang, targetLang, ...(precomputedResult ? { result: precomputedResult } : {}) }),
@@ -1297,7 +1410,7 @@ async function addChatTurn(
 }
 
 async function updateTurnSelection(chatId: string, turnId: string, selectedOption: number) {
-  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}?limit=1`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ selectedOption }),
@@ -1313,7 +1426,7 @@ async function updateTurnSelection(chatId: string, turnId: string, selectedOptio
 }
 
 async function requestTurnRetranslate(chatId: string, turnId: string, text?: string) {
-  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}?limit=${TURN_PAGE_SIZE}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "retranslate", ...(text !== undefined ? { text } : {}) }),
@@ -1329,7 +1442,7 @@ async function requestTurnRetranslate(chatId: string, turnId: string, text?: str
 }
 
 async function requestSwitchBranch(chatId: string, turnId: string) {
-  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}`, {
+  const response = await fetch(`/api/chats/${chatId}/turns/${turnId}?limit=${TURN_PAGE_SIZE}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "switchBranch" }),

@@ -77,7 +77,11 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Page through a chat's turns
+         * @description Returns a window of the chat's active-branch turns, oldest first: the `limit` turns ending just before `before`, or the most recent `limit` when `before` is omitted. Walk `before` backwards through each page's first turn while `hasMore` is true to traverse the full history.
+         */
+        get: operations["listTurns"];
         put?: never;
         /**
          * Translate and persist a turn
@@ -279,7 +283,16 @@ export interface components {
             siblingIds: string[];
         };
         ChatDetail: components["schemas"]["ChatSummary"] & {
+            /** @description Active-branch turns, oldest first — a window of the most recent when `limit` was passed. */
             turns: components["schemas"]["ChatTurn"][];
+            /** @description Total turns on the active branch, independent of any window applied to `turns`. */
+            totalTurns: number;
+        };
+        ChatTurnPage: {
+            /** @description Oldest first. */
+            turns: components["schemas"]["ChatTurn"][];
+            /** @description Whether older turns remain before this page. */
+            hasMore: boolean;
         };
         ApiKey: {
             id: string;
@@ -450,7 +463,10 @@ export interface operations {
     };
     getChat: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Window the response chat's `turns` to the most recent N of the active branch; `totalTurns` still counts them all. Omit for the full history. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 chatId: string;
@@ -500,7 +516,10 @@ export interface operations {
     };
     updateChat: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Window the response chat's `turns` to the most recent N of the active branch; `totalTurns` still counts them all. Omit for the full history. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 chatId: string;
@@ -536,9 +555,42 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listTurns: {
+        parameters: {
+            query?: {
+                /** @description A turn id on the active branch; only strictly older turns are returned. */
+                before?: string;
+                /** @description Page size. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                chatId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of turns. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatTurnPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     createTurn: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Window the response chat's `turns` to the most recent N of the active branch; `totalTurns` still counts them all. Omit for the full history. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 chatId: string;
@@ -579,7 +631,10 @@ export interface operations {
     };
     updateTurn: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Window the response chat's `turns` to the most recent N of the active branch; `totalTurns` still counts them all. Omit for the full history. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 chatId: string;

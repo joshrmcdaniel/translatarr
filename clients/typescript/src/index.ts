@@ -21,6 +21,7 @@ export type {
     ChatDetail,
     ChatSummary,
     ChatTurn,
+    ChatTurnPage,
     CreatedApiKey,
     KeyWord,
     LanguageCode,

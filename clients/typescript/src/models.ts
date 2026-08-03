@@ -33,6 +33,9 @@ export type ChatTurn = Schemas["ChatTurn"];
 /** A chat together with its ordered turns. */
 export type ChatDetail = Schemas["ChatDetail"];
 
+/** One page of a chat's active-branch turns, oldest first. */
+export type ChatTurnPage = Schemas["ChatTurnPage"];
+
 /** API-key metadata (never the secret token). */
 export type ApiKey = Schemas["ApiKey"];
 

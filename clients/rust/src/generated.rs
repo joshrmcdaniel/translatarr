@@ -114,10 +114,16 @@ pub struct ApiKey {
 #[doc = "    {"]
 #[doc = "      \"type\": \"object\","]
 #[doc = "      \"required\": ["]
+#[doc = "        \"totalTurns\","]
 #[doc = "        \"turns\""]
 #[doc = "      ],"]
 #[doc = "      \"properties\": {"]
+#[doc = "        \"totalTurns\": {"]
+#[doc = "          \"description\": \"Total turns on the active branch, independent of any window applied to `turns`.\","]
+#[doc = "          \"type\": \"integer\""]
+#[doc = "        },"]
 #[doc = "        \"turns\": {"]
+#[doc = "          \"description\": \"Active-branch turns, oldest first — a window of the most recent when `limit` was passed.\","]
 #[doc = "          \"type\": \"array\","]
 #[doc = "          \"items\": {"]
 #[doc = "            \"$ref\": \"#/definitions/ChatTurn\""]
@@ -139,6 +145,10 @@ pub struct ChatDetail {
     #[serde(rename = "targetLang")]
     pub target_lang: LanguageCode,
     pub title: ::std::string::String,
+    #[doc = "Total turns on the active branch, independent of any window applied to `turns`."]
+    #[serde(rename = "totalTurns")]
+    pub total_turns: i64,
+    #[doc = "Active-branch turns, oldest first — a window of the most recent when `limit` was passed."]
     pub turns: ::std::vec::Vec<ChatTurn>,
     #[serde(rename = "updatedAt")]
     pub updated_at: ::chrono::DateTime<::chrono::offset::Utc>,
@@ -292,6 +302,41 @@ pub struct ChatTurn {
     #[serde(rename = "targetLang")]
     pub target_lang: LanguageCode,
     pub text: ::std::string::String,
+}
+#[doc = "`ChatTurnPage`"]
+#[doc = r""]
+#[doc = r" <details><summary>JSON schema</summary>"]
+#[doc = r""]
+#[doc = r" ```json"]
+#[doc = "{"]
+#[doc = "  \"type\": \"object\","]
+#[doc = "  \"required\": ["]
+#[doc = "    \"hasMore\","]
+#[doc = "    \"turns\""]
+#[doc = "  ],"]
+#[doc = "  \"properties\": {"]
+#[doc = "    \"hasMore\": {"]
+#[doc = "      \"description\": \"Whether older turns remain before this page.\","]
+#[doc = "      \"type\": \"boolean\""]
+#[doc = "    },"]
+#[doc = "    \"turns\": {"]
+#[doc = "      \"description\": \"Oldest first.\","]
+#[doc = "      \"type\": \"array\","]
+#[doc = "      \"items\": {"]
+#[doc = "        \"$ref\": \"#/definitions/ChatTurn\""]
+#[doc = "      }"]
+#[doc = "    }"]
+#[doc = "  }"]
+#[doc = "}"]
+#[doc = r" ```"]
+#[doc = r" </details>"]
+#[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug, PartialEq)]
+pub struct ChatTurnPage {
+    #[doc = "Whether older turns remain before this page."]
+    #[serde(rename = "hasMore")]
+    pub has_more: bool,
+    #[doc = "Oldest first."]
+    pub turns: ::std::vec::Vec<ChatTurn>,
 }
 #[doc = "`CreatedApiKey`"]
 #[doc = r""]

@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../../lib/auth";
-import { addTurn, getChat } from "../../../../lib/chat-store";
+import { addTurn, getChat, listTurns } from "../../../../lib/chat-store";
 import { autoDetectLanguage } from "../../../../lib/languages";
-import { createTurnBodySchema, type CreateTurnBody } from "../../../../lib/request-schemas";
+import {
+  createTurnBodySchema,
+  listTurnsQuerySchema,
+  parseTurnLimit,
+  type CreateTurnBody,
+  type ListTurnsQuery,
+} from "../../../../lib/request-schemas";
 import { translationResponseSchema, type TranslationResponse } from "../../../../lib/translation-schema";
 import { translationErrorResponse } from "../../../../lib/translation-error";
-import { contextFromTurns, translateText } from "../../../../lib/translation-service";
+import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../../../lib/translation-service";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
@@ -23,6 +29,35 @@ function pairMatchesChat(
   return within(sourceLang) && within(targetLang);
 }
 
+export async function GET(request: Request, context: RouteContext) {
+  const user = await getSessionUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const { chatId } = await context.params;
+  let query: ListTurnsQuery;
+
+  try {
+    const params = new URL(request.url).searchParams;
+    query = listTurnsQuerySchema.parse({
+      before: params.get("before") ?? undefined,
+      limit: params.get("limit") ?? undefined,
+    });
+  } catch {
+    return NextResponse.json({ error: "Invalid before or limit parameter." }, { status: 400 });
+  }
+
+  const page = listTurns({ chatId, userId: user.id, limit: query.limit, beforeTurnId: query.before });
+
+  if (!page) {
+    return NextResponse.json({ error: "Chat or turn not found." }, { status: 404 });
+  }
+
+  return NextResponse.json(page);
+}
+
 export async function POST(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
@@ -31,6 +66,14 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const { chatId } = await context.params;
+  let turnLimit: number | undefined;
+
+  try {
+    turnLimit = parseTurnLimit(request.url);
+  } catch {
+    return NextResponse.json({ error: "limit must be an integer between 1 and 200." }, { status: 400 });
+  }
+
   let body: CreateTurnBody;
 
   try {
@@ -39,13 +82,13 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Send text, sourceLang, and targetLang." }, { status: 400 });
   }
 
-  const existingChat = getChat(chatId, user.id);
+  const existingChat = getChat(chatId, user.id, { turnLimit: CONTEXT_TURN_LIMIT });
 
   if (!existingChat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });
   }
 
-  if (existingChat.turns.length > 0 && !pairMatchesChat(existingChat, body.sourceLang, body.targetLang)) {
+  if (existingChat.totalTurns > 0 && !pairMatchesChat(existingChat, body.sourceLang, body.targetLang)) {
     return NextResponse.json({ error: "This chat is locked to its language pair." }, { status: 400 });
   }
 
@@ -66,7 +109,7 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const result =
       precomputedResult ?? (await translateText({ ...turn, userId: user.id, context: contextFromTurns(existingChat.turns) }));
-    const chat = addTurn({ chatId, userId: user.id, result, ...turn });
+    const chat = addTurn({ chatId, userId: user.id, result, turnLimit, ...turn });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found." }, { status: 404 });

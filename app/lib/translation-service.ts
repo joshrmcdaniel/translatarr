@@ -14,7 +14,8 @@ export type TranslationContextTurn = {
   translationLang: string;
 };
 
-const CONTEXT_TURN_LIMIT = 6;
+/** How many recent turns `contextFromTurns` keeps; callers fetching turns just for context need no more. */
+export const CONTEXT_TURN_LIMIT = 6;
 
 export function contextFromTurns(turns: ChatTurn[]): TranslationContextTurn[] {
   return turns.slice(-CONTEXT_TURN_LIMIT).map((turn) => ({

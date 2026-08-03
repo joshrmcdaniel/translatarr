@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../../../lib/auth";
-import { branchTurn, getChat, setActiveBranch, setTurnSelection } from "../../../../../lib/chat-store";
-import { updateTurnBodySchema, type UpdateTurnBody } from "../../../../../lib/request-schemas";
+import { branchTurn, getTurn, listTurns, setActiveBranch, setTurnSelection } from "../../../../../lib/chat-store";
+import { parseTurnLimit, updateTurnBodySchema, type UpdateTurnBody } from "../../../../../lib/request-schemas";
 import { translationErrorResponse } from "../../../../../lib/translation-error";
-import { contextFromTurns, translateText } from "../../../../../lib/translation-service";
+import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../../../../lib/translation-service";
 
 type RouteContext = {
   params: Promise<{ chatId: string; turnId: string }>;
@@ -17,6 +17,14 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { chatId, turnId } = await context.params;
+  let turnLimit: number | undefined;
+
+  try {
+    turnLimit = parseTurnLimit(request.url);
+  } catch {
+    return NextResponse.json({ error: "limit must be an integer between 1 and 200." }, { status: 400 });
+  }
+
   let body: UpdateTurnBody;
 
   try {
@@ -26,7 +34,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   if ("selectedOption" in body) {
-    const chat = setTurnSelection({ chatId, turnId, userId: user.id, selectedOption: body.selectedOption });
+    const chat = setTurnSelection({ chatId, turnId, userId: user.id, selectedOption: body.selectedOption, turnLimit });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat turn not found." }, { status: 404 });
@@ -36,7 +44,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   if (body.action === "switchBranch") {
-    const chat = setActiveBranch({ chatId, turnId, userId: user.id });
+    const chat = setActiveBranch({ chatId, turnId, userId: user.id, turnLimit });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat turn not found." }, { status: 404 });
@@ -45,14 +53,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ chat });
   }
 
-  const chat = getChat(chatId, user.id);
-  const turnIndex = chat?.turns.findIndex((turn) => turn.id === turnId) ?? -1;
-  const turn = chat?.turns[turnIndex];
+  const turn = getTurn(chatId, user.id, turnId);
 
-  if (!chat || !turn) {
+  if (!turn) {
     return NextResponse.json({ error: "Chat turn not found." }, { status: 404 });
   }
 
+  const priorTurns = listTurns({ chatId, userId: user.id, limit: CONTEXT_TURN_LIMIT, beforeTurnId: turnId });
   const text = body.text ?? turn.text;
 
   try {
@@ -61,9 +68,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       sourceLang: turn.sourceLang,
       targetLang: turn.targetLang,
       userId: user.id,
-      context: contextFromTurns(chat.turns.slice(0, turnIndex)),
+      context: contextFromTurns(priorTurns?.turns ?? []),
     });
-    const updatedChat = branchTurn({ chatId, turnId, userId: user.id, text, result });
+    const updatedChat = branchTurn({ chatId, turnId, userId: user.id, text, result, turnLimit });
 
     if (!updatedChat) {
       return NextResponse.json({ error: "Chat turn not found." }, { status: 404 });

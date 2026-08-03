@@ -12,6 +12,7 @@ import type {
     ApiKey,
     ChatDetail,
     ChatSummary,
+    ChatTurnPage,
     CreatedApiKey,
     TranslationResponse,
 } from "./models";
@@ -114,6 +115,20 @@ export function createKeyBody(name: string, expiresAt: string | Date | undefined
 export const CLEAR_CHAT_BODY: JsonObject = { action: "clear" };
 export const SWITCH_BRANCH_BODY: JsonObject = { action: "switchBranch" };
 
+// --- query parameters -----------------------------------------------------
+
+/** Append the defined entries of `params` to `path` as a query string. */
+export function withQuery(path: string, params: Record<string, string | number | undefined>): string {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined) {
+            query.set(key, String(value));
+        }
+    }
+    const rendered = query.toString();
+    return rendered ? `${path}?${rendered}` : path;
+}
+
 // --- response readers -----------------------------------------------------
 
 export function readTranslation(payload: unknown): TranslationResponse {
@@ -122,6 +137,10 @@ export function readTranslation(payload: unknown): TranslationResponse {
 
 export function readChat(payload: unknown): ChatDetail {
     return (payload as { chat: ChatDetail }).chat;
+}
+
+export function readTurnPage(payload: unknown): ChatTurnPage {
+    return payload as ChatTurnPage;
 }
 
 export function readChats(payload: unknown): ChatSummary[] {

@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
 import { clearTurns, deleteChat, getChat, renameChat } from "../../../lib/chat-store";
-import { updateChatBodySchema, type UpdateChatBody } from "../../../lib/request-schemas";
+import { parseTurnLimit, updateChatBodySchema, type UpdateChatBody } from "../../../lib/request-schemas";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+const invalidLimitResponse = () =>
+  NextResponse.json({ error: "limit must be an integer between 1 and 200." }, { status: 400 });
+
+export async function GET(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -15,7 +18,15 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { chatId } = await context.params;
-  const chat = getChat(chatId, user.id);
+  let turnLimit: number | undefined;
+
+  try {
+    turnLimit = parseTurnLimit(request.url);
+  } catch {
+    return invalidLimitResponse();
+  }
+
+  const chat = getChat(chatId, user.id, { turnLimit });
 
   if (!chat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });
@@ -32,6 +43,14 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { chatId } = await context.params;
+  let turnLimit: number | undefined;
+
+  try {
+    turnLimit = parseTurnLimit(request.url);
+  } catch {
+    return invalidLimitResponse();
+  }
+
   let body: UpdateChatBody;
 
   try {
@@ -40,7 +59,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unsupported chat update." }, { status: 400 });
   }
 
-  const chat = body.action === "clear" ? clearTurns(chatId, user.id) : renameChat(chatId, user.id, body.title);
+  const chat =
+    body.action === "clear" ? clearTurns(chatId, user.id, turnLimit) : renameChat(chatId, user.id, body.title, turnLimit);
 
   if (!chat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });

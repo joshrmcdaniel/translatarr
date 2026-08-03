@@ -36,6 +36,22 @@ pub(crate) fn encode_segment(segment: &str) -> String {
     out
 }
 
+/// Render the query string for paging turns; empty when no parameter is set.
+pub(crate) fn list_turns_query(before: Option<&str>, limit: Option<u32>) -> String {
+    let mut params = Vec::new();
+    if let Some(before) = before {
+        params.push(format!("before={}", encode_segment(before)));
+    }
+    if let Some(limit) = limit {
+        params.push(format!("limit={limit}"));
+    }
+    if params.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", params.join("&"))
+    }
+}
+
 // --- request bodies -------------------------------------------------------
 
 pub(crate) fn translate_body(
@@ -176,5 +192,12 @@ mod tests {
     fn language_str_uses_wire_codes() {
         assert_eq!(language_str(&LanguageCode::Yue), "yue");
         assert_eq!(language_str(&LanguageCode::Auto), "auto");
+    }
+
+    #[test]
+    fn list_turns_query_renders_set_parameters_only() {
+        assert_eq!(list_turns_query(None, None), "");
+        assert_eq!(list_turns_query(None, Some(10)), "?limit=10");
+        assert_eq!(list_turns_query(Some("turn 1"), Some(10)), "?before=turn%201&limit=10");
     }
 }

@@ -13,6 +13,7 @@ import type {
     ApiKey,
     ChatDetail,
     ChatSummary,
+    ChatTurnPage,
     CreatedApiKey,
     TranslationResponse,
 } from "./models";
@@ -126,9 +127,28 @@ export class TranslatarrClient {
         return core.readChat(await this.#sendJson("POST", "/api/chats", { json: body }));
     }
 
-    /** Fetch a chat together with its ordered turns. */
-    async getChat(chatId: string): Promise<ChatDetail> {
-        return core.readChat(await this.#sendJson("GET", `/api/chats/${encodeURIComponent(chatId)}`));
+    /**
+     * Fetch a chat together with its ordered turns. Pass `limit` to fetch only
+     * the most recent N turns of the active branch (`totalTurns` still counts
+     * them all); page further back with {@link listTurns}.
+     */
+    async getChat(chatId: string, options: { limit?: number } = {}): Promise<ChatDetail> {
+        const path = core.withQuery(`/api/chats/${encodeURIComponent(chatId)}`, { limit: options.limit });
+        return core.readChat(await this.#sendJson("GET", path));
+    }
+
+    /**
+     * One page of a chat's active-branch turns, oldest first: the `limit` turns
+     * ending just before the turn id `before`, or the most recent page when
+     * `before` is omitted. Walk `before` backwards through each page's first
+     * turn while `hasMore` is true.
+     */
+    async listTurns(chatId: string, options: { before?: string; limit?: number } = {}): Promise<ChatTurnPage> {
+        const path = core.withQuery(`/api/chats/${encodeURIComponent(chatId)}/turns`, {
+            before: options.before,
+            limit: options.limit,
+        });
+        return core.readTurnPage(await this.#sendJson("GET", path));
     }
 
     /** Rename a chat. */

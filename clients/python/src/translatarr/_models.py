@@ -315,7 +315,30 @@ class ChatTurn(BaseModel):
 
 
 class ChatDetail(ChatSummary):
-    turns: list[ChatTurn]
+    turns: Annotated[
+        list[ChatTurn],
+        Field(
+            description='Active-branch turns, oldest first — a window of the most recent when `limit` was passed.'
+        ),
+    ]
+    total_turns: Annotated[
+        int,
+        Field(
+            alias='totalTurns',
+            description='Total turns on the active branch, independent of any window applied to `turns`.',
+            ge=0,
+        ),
+    ]
+
+
+class ChatTurnPage(BaseModel):
+    turns: Annotated[list[ChatTurn], Field(description='Oldest first.')]
+    has_more: Annotated[
+        bool,
+        Field(
+            alias='hasMore', description='Whether older turns remain before this page.'
+        ),
+    ]
 
 
 class ApiKey(BaseModel):

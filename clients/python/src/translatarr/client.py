@@ -10,7 +10,7 @@ import httpx
 
 from . import _core as core
 from ._errors import raise_for_status
-from ._models import ApiKey, ChatDetail, ChatSummary, CreatedApiKey, TranslationResponse
+from ._models import ApiKey, ChatDetail, ChatSummary, ChatTurnPage, CreatedApiKey, TranslationResponse
 from .languages import SourceLang, TargetLang
 
 JsonObject = core.JsonObject
@@ -77,10 +77,11 @@ class TranslatarrClient:
         path: str,
         *,
         json: object | None = None,
+        params: dict[str, str | int] | dict[str, int] | None = None,
         data: dict[str, str] | None = None,
         files: dict[str, FileTuple] | None = None,
     ) -> httpx.Response:
-        response = self._client.request(method, path, json=json, data=data, files=files)
+        response = self._client.request(method, path, json=json, params=params, data=data, files=files)
         raise_for_status(response)
         return response
 
@@ -119,9 +120,31 @@ class TranslatarrClient:
         body = core.create_chat_body(source_lang, target_lang, title)
         return core.read_chat(self._send("POST", "/api/chats", json=body).json())
 
-    def get_chat(self, chat_id: str) -> ChatDetail:
-        """Fetch a chat together with its ordered turns."""
-        return core.read_chat(self._send("GET", f"/api/chats/{chat_id}").json())
+    def get_chat(self, chat_id: str, *, limit: int | None = None) -> ChatDetail:
+        """Fetch a chat together with its ordered turns.
+
+        Pass `limit` to fetch only the most recent N turns of the active branch
+        (`total_turns` still counts them all); page further back with
+        `list_turns`.
+        """
+        params = core.turn_window_params(limit)
+        return core.read_chat(self._send("GET", f"/api/chats/{chat_id}", params=params).json())
+
+    def list_turns(
+        self,
+        chat_id: str,
+        *,
+        before: str | None = None,
+        limit: int | None = None,
+    ) -> ChatTurnPage:
+        """One page of a chat's active-branch turns, oldest first.
+
+        Returns the `limit` turns ending just before the turn id `before`, or
+        the most recent page when `before` is omitted. Walk `before` backwards
+        through each page's first turn while `has_more` is true.
+        """
+        params = core.list_turns_params(before, limit)
+        return core.read_turn_page(self._send("GET", f"/api/chats/{chat_id}/turns", params=params).json())
 
     def rename_chat(self, chat_id: str, *, title: str) -> ChatDetail:
         """Rename a chat."""

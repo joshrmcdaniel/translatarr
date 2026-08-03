@@ -57,6 +57,23 @@ export const updateTurnBodySchema = z.union([
   z.object({ action: z.literal("switchBranch") }),
 ]);
 
+/** The optional `limit` query parameter windowing a chat response's turns. */
+export const turnLimitQuerySchema = z.coerce.number().int().min(1).max(200);
+
+export const listTurnsQuerySchema = z.object({
+  before: z.string().optional().describe("Return turns strictly older than this turn id on the active branch."),
+  limit: turnLimitQuerySchema.default(20),
+});
+
+/**
+ * Parses the optional `limit` query parameter from a request URL; undefined
+ * when absent. Throws when present but not an integer in [1, 200].
+ */
+export function parseTurnLimit(requestUrl: string): number | undefined {
+  const raw = new URL(requestUrl).searchParams.get("limit");
+  return raw === null ? undefined : turnLimitQuerySchema.parse(raw);
+}
+
 export const synthesizeBodySchema = z.object({
   text: z.string().trim().min(1).max(MAX_TTS_CHARS),
   lang: targetLangSchema,
@@ -69,6 +86,7 @@ export const createKeyBodySchema = z.object({
 });
 
 export type TranslateBody = z.infer<typeof translateBodySchema>;
+export type ListTurnsQuery = z.infer<typeof listTurnsQuerySchema>;
 export type CreateChatBody = z.infer<typeof createChatBodySchema>;
 export type UpdateChatBody = z.infer<typeof updateChatBodySchema>;
 export type CreateTurnBody = z.infer<typeof createTurnBodySchema>;

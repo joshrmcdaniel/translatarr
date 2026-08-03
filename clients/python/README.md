@@ -63,7 +63,7 @@ asyncio.run(main())
 | --------- | ------- |
 | Translate | `translate` |
 | Chats     | `list_chats`, `create_chat`, `get_chat`, `rename_chat`, `clear_chat`, `delete_chat` |
-| Turns     | `add_turn`, `select_option`, `retranslate_turn`, `switch_branch` |
+| Turns     | `add_turn`, `list_turns`, `select_option`, `retranslate_turn`, `switch_branch` |
 | Speech    | `transcribe`, `synthesize` |
 | API keys  | `list_keys`, `create_key`, `revoke_key` |
 

@@ -1,3 +1,22 @@
+## Translatarr v0.2.2
+
+**Long chats no longer crash mobile browsers — the timeline loads in pages as you scroll, with matching turn pagination in the API and all three SDKs.**
+
+### Fixed
+
+- **Mobile crash when opening a long chat.** Opening a chat rendered its entire history in one shot — every turn fetched, parsed, animated, and smooth-scrolled at once — which on memory-constrained phones could crash the browser's renderer (iOS Safari's "A problem repeatedly occurred when trying to load the page"). A chat now opens with only its newest 10 turns and jumps straight to the bottom; scrolling near the top fetches the previous 10, keeping your reading position anchored while older turns appear above. The per-card entry animation now plays only for turns you just sent or retranslated, so a stored chat renders statically instead of compositing an animation per card.
+
+### Added
+
+- **Turn pagination in the API.** Chat-returning routes accept an opt-in `?limit=N` (1–200) that windows the response's `turns` to the most recent N of the active branch, and `ChatDetail` gains `totalTurns` so callers can tell how much history exists beyond the window. A new **`GET /api/chats/{chatId}/turns?before=<turnId>&limit=N`** pages backwards through a chat, returning `{turns, hasMore}` oldest-first. Omitting `limit` keeps the previous full-history responses, so existing integrations are unaffected. All documented in the Swagger reference at `/api/docs`.
+- **SDK pagination methods.** All three clients gain a turns pager — `list_turns(chat_id, before=…, limit=…)` in Python and Rust, `listTurns(chatId, {before, limit})` in TypeScript — and the Python and TypeScript `get_chat` accepts an optional `limit` for windowed fetches (the Rust `get_chat` signature is unchanged to avoid a breaking crate change; use `list_turns` there).
+
+### Changed
+
+- **Turn loading is windowed server-side too.** The chat store now resolves a chat's active branch from turn metadata first and parses stored translation results only for the turns actually requested. Previously every sent message re-parsed the chat's entire stored history, and building translation context loaded every turn to use the last 6 — costs now scale with the requested window instead of the chat's length.
+
+---
+
 ## Translatarr v0.2.1
 
 **The client SDKs are now installable from their ecosystems' standard public registries — `pip install`, `npm install`, `cargo add` — published from CI with no stored secrets.**

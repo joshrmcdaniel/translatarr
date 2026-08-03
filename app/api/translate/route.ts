@@ -3,7 +3,7 @@ import { getSessionUser } from "../../lib/auth";
 import { getChat } from "../../lib/chat-store";
 import { translateBodySchema, type TranslateBody } from "../../lib/request-schemas";
 import { translationErrorResponse } from "../../lib/translation-error";
-import { contextFromTurns, translateText } from "../../lib/translation-service";
+import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../lib/translation-service";
 
 export async function POST(request: Request) {
   const user = await getSessionUser();
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   let context;
 
   if (body.chatId) {
-    const chat = getChat(body.chatId, user.id);
+    const chat = getChat(body.chatId, user.id, { turnLimit: CONTEXT_TURN_LIMIT });
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found." }, { status: 404 });

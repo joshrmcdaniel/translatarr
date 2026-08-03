@@ -45,6 +45,16 @@ const jsonError = {
   content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
 };
 
+const turnLimitParam = {
+  name: "limit",
+  in: "query",
+  required: false,
+  schema: { type: "integer", minimum: 1, maximum: 200 },
+  description:
+    "Window the response chat's `turns` to the most recent N of the active branch; " +
+    "`totalTurns` still counts them all. Omit for the full history.",
+} as const;
+
 function chatResponse(description: string) {
   return {
     description,
@@ -153,6 +163,7 @@ export function buildOpenApiDocument() {
           tags: ["Chats"],
           operationId: "getChat",
           summary: "Fetch a chat with its turns",
+          parameters: [turnLimitParam],
           responses: {
             "200": chatResponse("The chat and its turns."),
             "401": { $ref: "#/components/responses/Unauthorized" },
@@ -163,6 +174,7 @@ export function buildOpenApiDocument() {
           tags: ["Chats"],
           operationId: "updateChat",
           summary: "Clear turns or rename a chat",
+          parameters: [turnLimitParam],
           requestBody: jsonRequestBody(updateChatBodySchema),
           responses: {
             "200": chatResponse("The updated chat."),
@@ -187,6 +199,40 @@ export function buildOpenApiDocument() {
       },
       "/api/chats/{chatId}/turns": {
         parameters: [{ name: "chatId", in: "path", required: true, schema: { type: "string" } }],
+        get: {
+          tags: ["Chats"],
+          operationId: "listTurns",
+          summary: "Page through a chat's turns",
+          description:
+            "Returns a window of the chat's active-branch turns, oldest first: the `limit` turns ending just " +
+            "before `before`, or the most recent `limit` when `before` is omitted. Walk `before` backwards " +
+            "through each page's first turn while `hasMore` is true to traverse the full history.",
+          parameters: [
+            {
+              name: "before",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "A turn id on the active branch; only strictly older turns are returned.",
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 200, default: 20 },
+              description: "Page size.",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "One page of turns.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ChatTurnPage" } } },
+            },
+            "400": { $ref: "#/components/responses/BadRequest" },
+            "401": { $ref: "#/components/responses/Unauthorized" },
+            "404": { $ref: "#/components/responses/NotFound" },
+          },
+        },
         post: {
           tags: ["Chats"],
           operationId: "createTurn",
@@ -194,6 +240,7 @@ export function buildOpenApiDocument() {
           description:
             "Translates `text` and appends it to the chat. Supply `result` (a prior translation of this exact " +
             "text and language pair) to persist it without a second LLM call.",
+          parameters: [turnLimitParam],
           requestBody: jsonRequestBody(createTurnBodySchema),
           responses: {
             "200": chatResponse("The chat including the new turn."),
@@ -214,6 +261,7 @@ export function buildOpenApiDocument() {
           tags: ["Chats"],
           operationId: "updateTurn",
           summary: "Select an option, retranslate, or switch branch",
+          parameters: [turnLimitParam],
           requestBody: jsonRequestBody(updateTurnBodySchema),
           responses: {
             "200": chatResponse("The updated chat."),
@@ -430,12 +478,33 @@ export function buildOpenApiDocument() {
             { $ref: "#/components/schemas/ChatSummary" },
             {
               type: "object",
-              required: ["turns"],
+              required: ["turns", "totalTurns"],
               properties: {
-                turns: { type: "array", items: { $ref: "#/components/schemas/ChatTurn" } },
+                turns: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/ChatTurn" },
+                  description: "Active-branch turns, oldest first — a window of the most recent when `limit` was passed.",
+                },
+                totalTurns: {
+                  type: "integer",
+                  minimum: 0,
+                  description: "Total turns on the active branch, independent of any window applied to `turns`.",
+                },
               },
             },
           ],
+        },
+        ChatTurnPage: {
+          type: "object",
+          required: ["turns", "hasMore"],
+          properties: {
+            turns: {
+              type: "array",
+              items: { $ref: "#/components/schemas/ChatTurn" },
+              description: "Oldest first.",
+            },
+            hasMore: { type: "boolean", description: "Whether older turns remain before this page." },
+          },
         },
         ApiKey: {
           type: "object",

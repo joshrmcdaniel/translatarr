@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import cast
 
-from ._models import ApiKey, ChatDetail, ChatSummary, CreatedApiKey, TranslationResponse
+from ._models import ApiKey, ChatDetail, ChatSummary, ChatTurnPage, CreatedApiKey, TranslationResponse
 
 JsonObject = dict[str, object]
 
@@ -104,6 +104,23 @@ CLEAR_CHAT_BODY: JsonObject = {"action": "clear"}
 SWITCH_BRANCH_BODY: JsonObject = {"action": "switchBranch"}
 
 
+# --- query parameters -----------------------------------------------------
+
+def turn_window_params(limit: int | None) -> dict[str, int] | None:
+    """The `limit` query parameter windowing a chat response's turns."""
+    return {"limit": limit} if limit is not None else None
+
+
+def list_turns_params(before: str | None, limit: int | None) -> dict[str, str | int] | None:
+    """Query parameters for paging through a chat's turns."""
+    params: dict[str, str | int] = {}
+    if before is not None:
+        params["before"] = before
+    if limit is not None:
+        params["limit"] = limit
+    return params or None
+
+
 # --- response readers -----------------------------------------------------
 
 def read_translation(payload: JsonObject) -> TranslationResponse:
@@ -112,6 +129,10 @@ def read_translation(payload: JsonObject) -> TranslationResponse:
 
 def read_chat(payload: JsonObject) -> ChatDetail:
     return ChatDetail.model_validate(payload["chat"])
+
+
+def read_turn_page(payload: JsonObject) -> ChatTurnPage:
+    return ChatTurnPage.model_validate(payload)
 
 
 def read_chats(payload: JsonObject) -> list[ChatSummary]:

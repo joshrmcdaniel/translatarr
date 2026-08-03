@@ -7,6 +7,6 @@
 //! what the server returns.
 
 pub use crate::generated::{
-    ApiKey, ChatDetail, ChatSummary, ChatTurn, CreatedApiKey, KeyWord, LanguageCode, Translation,
-    TranslationResponse,
+    ApiKey, ChatDetail, ChatSummary, ChatTurn, ChatTurnPage, CreatedApiKey, KeyWord, LanguageCode,
+    Translation, TranslationResponse,
 };

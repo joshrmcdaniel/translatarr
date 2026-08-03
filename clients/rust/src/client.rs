@@ -15,7 +15,7 @@ use std::time::Duration;
 use crate::core;
 use crate::error::{Error, Result};
 use crate::models::{
-    ApiKey, ChatDetail, ChatSummary, CreatedApiKey, LanguageCode, TranslationResponse,
+    ApiKey, ChatDetail, ChatSummary, ChatTurnPage, CreatedApiKey, LanguageCode, TranslationResponse,
 };
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -199,6 +199,24 @@ impl TranslatarrClient {
         let path = format!("/api/chats/{}", core::encode_segment(chat_id));
         let env: core::ChatEnvelope = self.request_json(Method::GET, &path, Body::None).await?;
         Ok(env.chat)
+    }
+
+    /// One page of a chat's active-branch turns, oldest first: the `limit`
+    /// turns ending just before the turn id `before`, or the most recent page
+    /// when `before` is `None`. Walk `before` backwards through each page's
+    /// first turn while `has_more` is true to traverse the full history.
+    pub async fn list_turns(
+        &self,
+        chat_id: &str,
+        before: Option<&str>,
+        limit: Option<u32>,
+    ) -> Result<ChatTurnPage> {
+        let path = format!(
+            "/api/chats/{}/turns{}",
+            core::encode_segment(chat_id),
+            core::list_turns_query(before, limit),
+        );
+        self.request_json(Method::GET, &path, Body::None).await
     }
 
     /// Rename a chat.
