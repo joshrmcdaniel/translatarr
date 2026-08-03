@@ -17,21 +17,21 @@
     "clients:regen": "bun run clients:regen:python && bun run clients:regen:ts && bun run clients:regen:rust"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.1",
-    "better-sqlite3": "^12.10.0",
+    "@anthropic-ai/sdk": "^0.104.2",
+    "better-sqlite3": "^12.11.1",
     "mcp-handler": "^1.1.0",
-    "next": "^15.3.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "zod": "^3.25.51"
+    "next": "^15.5.22",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^22.15.29",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.5",
-    "playwright": "^1.60.0",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "playwright": "^1.62.1",
     "swagger-ui-dist": "5.32.8",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   }
 }
