@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../lib/i18n/i18n-context";
 import { localeNativeNames } from "../lib/i18n/language-names";
 import { detectBrowserLocale, locales, type Locale } from "../lib/i18n/messages";
-import type { LLMProvider, SettingsPayload, SpeechEngine } from "../lib/settings-types";
+import type { LLMProvider, LLMReasoningMode, SettingsPayload, SpeechEngine } from "../lib/settings-types";
 import { ApiKeysManager } from "./api-keys-manager";
 import { UserAdmin } from "./user-admin";
 
@@ -23,6 +23,10 @@ type InstanceForm = {
   baseUrl: string;
   apiKey: string;
   systemPrompt: string;
+  temperature: string;
+  maxTokens: string;
+  reasoning: "" | LLMReasoningMode;
+  timeoutSeconds: string;
   speechEngine: "" | SpeechEngine;
   speechBaseUrl: string;
   speechApiKey: string;
@@ -39,6 +43,10 @@ const emptyInstance: InstanceForm = {
   baseUrl: "",
   apiKey: "",
   systemPrompt: "",
+  temperature: "",
+  maxTokens: "",
+  reasoning: "",
+  timeoutSeconds: "",
   speechEngine: "",
   speechBaseUrl: "",
   speechApiKey: "",
@@ -47,6 +55,18 @@ const emptyInstance: InstanceForm = {
   speechTtsVoice: "",
   updateCheckEnabled: true,
 };
+
+/** An optional numeric form field: empty or unparsable input means "no override". */
+function numberOrNull(value: string): number | null {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 export function SettingsDialog({
   open,
@@ -110,6 +130,11 @@ export function SettingsDialog({
       baseUrl: fetched.settings.instance?.baseUrl ?? "",
       apiKey: "",
       systemPrompt: fetched.settings.instance?.systemPrompt ?? "",
+      temperature: fetched.settings.instance?.temperature?.toString() ?? "",
+      maxTokens: fetched.settings.instance?.maxTokens?.toString() ?? "",
+      reasoning: fetched.settings.instance?.reasoning ?? "",
+      timeoutSeconds:
+        fetched.settings.instance?.timeoutMs != null ? String(Math.round(fetched.settings.instance.timeoutMs / 1000)) : "",
       speechEngine: fetched.settings.speech.instance?.engine ?? "",
       speechBaseUrl: fetched.settings.speech.instance?.baseUrl ?? "",
       speechApiKey: "",
@@ -159,6 +184,10 @@ export function SettingsDialog({
               model: instance.model.trim() || null,
               baseUrl: instance.baseUrl.trim() || null,
               systemPrompt: instance.systemPrompt.trim() || null,
+              temperature: numberOrNull(instance.temperature),
+              maxTokens: numberOrNull(instance.maxTokens),
+              reasoning: instance.reasoning || null,
+              timeoutMs: numberOrNull(instance.timeoutSeconds) !== null ? numberOrNull(instance.timeoutSeconds)! * 1000 : null,
               speechEngine: instance.speechEngine || null,
               speechBaseUrl: instance.speechBaseUrl.trim() || null,
               speechSttModel: instance.speechSttModel.trim() || null,
@@ -385,6 +414,64 @@ export function SettingsDialog({
                         onChange={(event) => setInstance({ ...instance, systemPrompt: event.target.value })}
                       />
                       <small className="field-hint">{t("settings.instancePromptHint")}</small>
+                    </label>
+
+                    <label className="settings-field">
+                      <span>{t("settings.reasoning")}</span>
+                      <select
+                        value={instance.reasoning}
+                        onChange={(event) =>
+                          setInstance({ ...instance, reasoning: event.target.value as InstanceForm["reasoning"] })
+                        }
+                      >
+                        <option value="">{t("settings.reasoningDefault")}</option>
+                        <option value="off">{t("settings.reasoningOff")}</option>
+                        <option value="low">{t("settings.reasoningLow")}</option>
+                        <option value="medium">{t("settings.reasoningMedium")}</option>
+                        <option value="high">{t("settings.reasoningHigh")}</option>
+                      </select>
+                      <small className="field-hint">{t("settings.reasoningHint")}</small>
+                    </label>
+
+                    <label className="settings-field">
+                      <span>{t("settings.temperature")}</span>
+                      <input
+                        type="number"
+                        value={instance.temperature}
+                        placeholder="0.2"
+                        min={0}
+                        max={2}
+                        step={0.1}
+                        onChange={(event) => setInstance({ ...instance, temperature: event.target.value })}
+                      />
+                      <small className="field-hint">{t("settings.temperatureHint")}</small>
+                    </label>
+
+                    <label className="settings-field">
+                      <span>{t("settings.maxTokens")}</span>
+                      <input
+                        type="number"
+                        value={instance.maxTokens}
+                        placeholder="8192"
+                        min={256}
+                        max={200000}
+                        step={256}
+                        onChange={(event) => setInstance({ ...instance, maxTokens: event.target.value })}
+                      />
+                    </label>
+
+                    <label className="settings-field">
+                      <span>{t("settings.timeoutSeconds")}</span>
+                      <input
+                        type="number"
+                        value={instance.timeoutSeconds}
+                        placeholder="120"
+                        min={5}
+                        max={600}
+                        step={5}
+                        onChange={(event) => setInstance({ ...instance, timeoutSeconds: event.target.value })}
+                      />
+                      <small className="field-hint">{t("settings.timeoutHint")}</small>
                     </label>
 
                     <label className="toggle">

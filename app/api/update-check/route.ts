@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../lib/auth";
 import { getUpdateStatus } from "../../lib/update-check";
+import { logged } from "../../lib/request-log";
 
 /** Admin-only: the update banner is shown to admins, so only they trigger the check. */
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -16,3 +17,5 @@ export async function GET() {
 
   return NextResponse.json(await getUpdateStatus());
 }
+
+export const GET = logged(handleGET);

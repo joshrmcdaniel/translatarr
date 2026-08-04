@@ -11,6 +11,7 @@ const messages: Record<ProviderErrorKind, string> = {
   bad_request: "The translation provider rejected the request.",
   server: "The translation provider is having problems. Try again shortly.",
   network: "Couldn't reach the translation provider. Check the base URL and your connection.",
+  timeout: "The model took too long to respond. Try a faster model, or raise the request timeout in Settings.",
   unknown: "The translation service is unavailable.",
 };
 

@@ -12,8 +12,10 @@ import type { User } from "./user-store";
 import { APP_VERSION } from "./version";
 import {
   llmProviders,
+  llmReasoningModes,
   speechEngines,
   type LLMProvider,
+  type LLMReasoningMode,
   type ResolvedLLMSettings,
   type ResolvedSpeechSettings,
   type SettingsOverrides,
@@ -44,8 +46,27 @@ const speechDefaults = {
   ttsVoice: "alloy",
 };
 
+const llmTuningDefaults = {
+  temperature: 0.2,
+  maxTokens: 8192,
+  timeoutMs: 120_000,
+};
+
 function asProvider(value: string | undefined): LLMProvider | null {
   return llmProviders.includes(value as LLMProvider) ? (value as LLMProvider) : null;
+}
+
+function asReasoningMode(value: string | undefined): LLMReasoningMode | null {
+  return llmReasoningModes.includes(value as LLMReasoningMode) ? (value as LLMReasoningMode) : null;
+}
+
+function asFiniteNumber(value: string | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function asSpeechEngine(value: string | undefined): SpeechEngine | null {
@@ -121,11 +142,19 @@ export function getSettingsOverrides(): SettingsOverrides {
     model: byKey.get("model") ?? null,
     baseUrl: byKey.get("baseUrl") ?? null,
     systemPrompt: byKey.get("systemPrompt") ?? null,
+    temperature: asFiniteNumber(byKey.get("temperature")),
+    maxTokens: asFiniteNumber(byKey.get("maxTokens")),
+    reasoning: asReasoningMode(byKey.get("reasoning")),
+    timeoutMs: asFiniteNumber(byKey.get("timeoutMs")),
   };
 }
 
 export function updateSettingsOverrides(patch: Partial<SettingsOverrides>): SettingsOverrides {
-  applyKeyValuePatch(patch, "app_settings");
+  const serialized = Object.fromEntries(
+    Object.entries(patch).map(([key, value]) => [key, typeof value === "number" ? String(value) : value]),
+  );
+
+  applyKeyValuePatch(serialized, "app_settings");
   return getSettingsOverrides();
 }
 
@@ -204,6 +233,10 @@ export function resolveLLMSettings(userId?: string): ResolvedLLMSettings {
     model: userPrefs.model ?? instance.model ?? process.env.LLM_MODEL ?? defaults.model,
     baseUrl: instance.baseUrl ?? process.env.LLM_BASE_URL ?? defaults.baseUrl,
     systemPrompt: userPrefs.systemPrompt ?? instance.systemPrompt,
+    temperature: instance.temperature ?? asFiniteNumber(process.env.LLM_TEMPERATURE) ?? llmTuningDefaults.temperature,
+    maxTokens: instance.maxTokens ?? asFiniteNumber(process.env.LLM_MAX_TOKENS) ?? llmTuningDefaults.maxTokens,
+    reasoning: instance.reasoning ?? asReasoningMode(process.env.LLM_REASONING),
+    timeoutMs: instance.timeoutMs ?? asFiniteNumber(process.env.LLM_TIMEOUT_MS) ?? llmTuningDefaults.timeoutMs,
   };
 }
 
@@ -249,6 +282,10 @@ export function getSettingsView(user: User): SettingsView {
             model: instance.model,
             baseUrl: instance.baseUrl,
             systemPrompt: instance.systemPrompt,
+            temperature: instance.temperature,
+            maxTokens: instance.maxTokens,
+            reasoning: instance.reasoning,
+            timeoutMs: instance.timeoutMs,
             hasStoredApiKey: instance.apiKey !== null,
             updateCheckEnabled: resolveUpdateCheckEnabled(),
           }

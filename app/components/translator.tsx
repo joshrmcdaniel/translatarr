@@ -24,6 +24,8 @@ const UPDATE_DISMISSED_KEY = "translatarr:update-dismissed";
 const TURN_PAGE_SIZE = 10;
 /** How close to the timeline's top (px) the user must scroll before the next older page loads. */
 const OLDER_TURNS_SCROLL_THRESHOLD = 240;
+/** Client-side cap on translation requests, above the server's own LLM timeout so its error arrives first. */
+const TRANSLATE_TIMEOUT_MS = 150_000;
 
 type RequestState = "idle" | "loading" | "error" | "success";
 
@@ -335,12 +337,32 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     }
   }
 
+  /**
+   * After a failed send, checks whether the turn actually persisted — a timed-out
+   * or proxy-dropped response can arrive after the server already saved it, and
+   * restoring the composer text then would invite a duplicate send.
+   */
+  async function recoverPersistedTurn(
+    chatId: string,
+    submittedText: string,
+    previousLastTurnId: string | null,
+  ): Promise<ChatDetail | null> {
+    try {
+      const chat = await getChat(chatId);
+      const lastTurn = chat.turns.at(-1);
+      return lastTurn && lastTurn.id !== previousLastTurnId && lastTurn.text === submittedText ? chat : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function sendMessage() {
     if (!canSend) {
       return;
     }
 
     const submittedText = trimmedText;
+    const previousLastTurnId = lastTurnId;
     const reusablePreview =
       previewResult &&
       previewFor.current?.text === submittedText &&
@@ -356,8 +378,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     setPreviewResult(null);
     setPreviewStatus("idle");
 
+    let chat: ChatDetail | null = activeChat;
+
     try {
-      const chat = activeChat ?? (await createChat(sourceLang, targetLang));
+      chat = activeChat ?? (await createChat(sourceLang, targetLang));
       const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview);
 
       markFreshTurns(activeChat, updatedChat);
@@ -367,9 +391,20 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setTargetLang(updatedChat.targetLang);
       setSendStatus("success");
     } catch (translationError) {
-      setText((current) => current || submittedText);
-      setSendStatus("error");
-      setError(apiErrorMessage(t, translationError, "common.translationFailed"));
+      const recovered = chat ? await recoverPersistedTurn(chat.id, submittedText, previousLastTurnId) : null;
+
+      if (recovered) {
+        markFreshTurns(activeChat, recovered);
+        setActiveChat(recovered);
+        setChats((current) => upsertSummary(current, toSummary(recovered)));
+        setSourceLang(recovered.sourceLang);
+        setTargetLang(recovered.targetLang);
+        setSendStatus("success");
+      } else {
+        setText((current) => current || submittedText);
+        setSendStatus("error");
+        setError(apiErrorMessage(t, translationError, "common.translationFailed"));
+      }
     } finally {
       setPendingTurn(null);
     }
@@ -579,13 +614,27 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
   async function handleVoiceUtterance(utterance: string, fromLang: string, toLang: string): Promise<TranslationResponse> {
     const chat = activeChat ?? (await createChat(fromLang, toLang));
+    const previousLastTurnId = activeChat?.turns.at(-1)?.id ?? null;
 
     if (!activeChat) {
       setChats((current) => [toSummary(chat), ...current]);
       setActiveChat(chat);
     }
 
-    const updatedChat = await addChatTurn(chat.id, utterance, fromLang, toLang);
+    let updatedChat: ChatDetail;
+
+    try {
+      updatedChat = await addChatTurn(chat.id, utterance, fromLang, toLang);
+    } catch (utteranceError) {
+      const recovered = await recoverPersistedTurn(chat.id, utterance, previousLastTurnId);
+
+      if (!recovered) {
+        throw utteranceError;
+      }
+
+      updatedChat = recovered;
+    }
+
     markFreshTurns(activeChat, updatedChat);
     setActiveChat(updatedChat);
     setChats((current) => upsertSummary(current, toSummary(updatedChat)));
@@ -1398,6 +1447,7 @@ async function addChatTurn(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, sourceLang, targetLang, ...(precomputedResult ? { result: precomputedResult } : {}) }),
+    signal: AbortSignal.timeout(TRANSLATE_TIMEOUT_MS),
   });
 
   const payload = (await response.json()) as { chat?: ChatDetail; error?: string; code?: string };
@@ -1430,6 +1480,7 @@ async function requestTurnRetranslate(chatId: string, turnId: string, text?: str
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "retranslate", ...(text !== undefined ? { text } : {}) }),
+    signal: AbortSignal.timeout(TRANSLATE_TIMEOUT_MS),
   });
 
   const payload = (await response.json()) as { chat?: ChatDetail; error?: string; code?: string };
@@ -1464,11 +1515,12 @@ async function requestTranslation(
   signal?: AbortSignal,
   chatId?: string,
 ) {
+  const timeout = AbortSignal.timeout(TRANSLATE_TIMEOUT_MS);
   const response = await fetch("/api/translate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, sourceLang, targetLang, chatId }),
-    signal,
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
 
   const payload = (await response.json()) as TranslationResponse | { error?: string; code?: string };

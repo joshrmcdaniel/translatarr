@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "../../lib/auth";
 import { createChat, listChats } from "../../lib/chat-store";
 import { createChatBodySchema, type CreateChatBody } from "../../lib/request-schemas";
+import { logged } from "../../lib/request-log";
 
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -13,7 +14,7 @@ export async function GET() {
   return NextResponse.json({ chats: listChats(user.id) });
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -30,3 +31,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ chat: createChat({ ...body, userId: user.id }) }, { status: 201 });
 }
+
+export const GET = logged(handleGET);
+export const POST = logged(handlePOST);

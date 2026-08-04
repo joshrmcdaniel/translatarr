@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
 import { buildOpenApiDocument } from "../../../lib/openapi";
+import { logged } from "../../../lib/request-log";
 
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -11,3 +12,5 @@ export async function GET() {
 
   return NextResponse.json(buildOpenApiDocument());
 }
+
+export const GET = logged(handleGET);

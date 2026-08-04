@@ -6,6 +6,7 @@ import { getSettingsView, updateUserLocale, updateUserPrefs, updateUserSpeechPre
 import type { SettingsPayload } from "../../lib/settings-types";
 import { defaultPromptTemplate } from "../../lib/translation-service";
 import type { User } from "../../lib/user-store";
+import { logged } from "../../lib/request-log";
 
 const userPrefsSchema = z.object({
   model: z.string().trim().max(200).nullable().optional(),
@@ -21,7 +22,7 @@ function buildPayload(user: User): SettingsPayload {
   };
 }
 
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -31,7 +32,7 @@ export async function GET() {
   return NextResponse.json(buildPayload(user));
 }
 
-export async function PUT(request: Request) {
+async function handlePUT(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -59,3 +60,6 @@ export async function PUT(request: Request) {
 
   return NextResponse.json(buildPayload(user));
 }
+
+export const GET = logged(handleGET);
+export const PUT = logged(handlePUT);

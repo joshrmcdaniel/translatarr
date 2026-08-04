@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
 import { deleteUser } from "../../../lib/user-store";
+import { logged } from "../../../lib/request-log";
 
 type RouteContext = {
   params: Promise<{ userId: string }>;
 };
 
-export async function DELETE(_request: Request, context: RouteContext) {
+async function handleDELETE(_request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -29,3 +30,5 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = logged(handleDELETE);

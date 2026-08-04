@@ -10,6 +10,7 @@ const messages: Record<ProviderErrorKind, string> = {
   bad_request: "The speech provider rejected the request.",
   server: "The speech provider is having problems. Try again shortly.",
   network: "Couldn't reach the speech provider. Check the base URL and your connection.",
+  timeout: "The speech provider took too long to respond. Try again shortly.",
   unknown: "The speech service is unavailable.",
 };
 

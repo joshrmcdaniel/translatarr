@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { startSession, verifyPassword } from "../../../lib/auth";
 import { getUserAuthByUsername } from "../../../lib/user-store";
+import { logged } from "../../../lib/request-log";
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1).max(200),
 });
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: z.infer<typeof loginSchema>;
 
   try {
@@ -26,3 +27,5 @@ export async function POST(request: Request) {
   await startSession(auth.user.id);
   return NextResponse.json({ user: auth.user });
 }
+
+export const POST = logged(handlePOST);

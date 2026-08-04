@@ -4,12 +4,13 @@ import { branchTurn, getTurn, listTurns, setActiveBranch, setTurnSelection } fro
 import { parseTurnLimit, updateTurnBodySchema, type UpdateTurnBody } from "../../../../../lib/request-schemas";
 import { translationErrorResponse } from "../../../../../lib/translation-error";
 import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../../../../lib/translation-service";
+import { logged } from "../../../../../lib/request-log";
 
 type RouteContext = {
   params: Promise<{ chatId: string; turnId: string }>;
 };
 
-export async function PATCH(request: Request, context: RouteContext) {
+async function handlePATCH(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -81,3 +82,5 @@ export async function PATCH(request: Request, context: RouteContext) {
     return translationErrorResponse(error);
   }
 }
+
+export const PATCH = logged(handlePATCH);

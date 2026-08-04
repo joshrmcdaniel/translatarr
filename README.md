@@ -86,6 +86,10 @@ Everything can be configured in-app, so environment variables are optional. When
 | `LLM_PROVIDER` | `openai-compatible` or `anthropic` | `openai-compatible` |
 | `LLM_MODEL` | Model name | `gpt-5.4-mini` (openai-compatible), `claude-haiku-4-5` (anthropic) |
 | `LLM_BASE_URL` | API base URL, e.g. `https://openrouter.ai/api/v1` | provider default |
+| `LLM_TEMPERATURE` | Sampling temperature (0–2); lower is more literal | `0.2` |
+| `LLM_MAX_TOKENS` | Completion token cap per translation request | `8192` |
+| `LLM_REASONING` | `off`, `low`, `medium`, or `high` — reasoning control for OpenRouter-style gateways (hybrid models think by default; `off` skips it). Leave unset for plain OpenAI endpoints. | unset (provider default) |
+| `LLM_TIMEOUT_MS` | Fail translation requests that exceed this many milliseconds | `120000` |
 | `SQLITE_PATH` | Database file location | `data/translatarr.sqlite` |
 | `SPEECH_ENGINE` | Where speech runs: `browser` (Web Speech API, free) or `provider` (server-side audio API) | `browser` |
 | `SPEECH_API_KEY` | API key for provider speech | reuses `LLM_API_KEY` when the LLM provider is OpenAI-compatible |

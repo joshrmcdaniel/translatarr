@@ -10,6 +10,7 @@ import {
 import type { SettingsPayload } from "../../../lib/settings-types";
 import { defaultPromptTemplate } from "../../../lib/translation-service";
 import type { User } from "../../../lib/user-store";
+import { logged } from "../../../lib/request-log";
 
 const instanceSchema = z.object({
   provider: z.enum(["openai-compatible", "anthropic", "custom"]).nullable().optional(),
@@ -17,6 +18,10 @@ const instanceSchema = z.object({
   model: z.string().trim().max(200).nullable().optional(),
   baseUrl: z.string().trim().url().max(500).nullable().optional(),
   systemPrompt: z.string().trim().max(8000).nullable().optional(),
+  temperature: z.number().min(0).max(2).nullable().optional(),
+  maxTokens: z.number().int().min(256).max(200000).nullable().optional(),
+  reasoning: z.enum(["off", "low", "medium", "high"]).nullable().optional(),
+  timeoutMs: z.number().int().min(5000).max(600000).nullable().optional(),
   speechEngine: z.enum(["browser", "provider"]).nullable().optional(),
   speechApiKey: z.string().trim().max(500).nullable().optional(),
   speechBaseUrl: z.string().trim().url().max(500).nullable().optional(),
@@ -33,7 +38,7 @@ function buildPayload(user: User): SettingsPayload {
   };
 }
 
-export async function PUT(request: Request) {
+async function handlePUT(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -79,3 +84,5 @@ export async function PUT(request: Request) {
 
   return NextResponse.json(buildPayload(user));
 }
+
+export const PUT = logged(handlePUT);

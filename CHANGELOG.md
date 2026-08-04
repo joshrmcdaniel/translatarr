@@ -1,3 +1,18 @@
+## Translatarr v0.2.3
+
+**Slow models no longer spin forever — request timeouts with send recovery, model tuning in Settings, and a production-style request log.**
+
+### Fixed
+
+- **Translations could spin forever on slow models.** Nothing on the translation path had a timeout: a slow or thinking-heavy model (or a reverse proxy that dropped the response) left the send spinner running indefinitely, even after the server had quietly finished and saved the turn. Provider requests now time out server-side (2 minutes by default, configurable) and surface a clear error instead; the client caps its own requests slightly above that; and a failed send first re-checks the chat — if the turn actually persisted, it appears normally instead of the composer refilling and inviting a duplicate send.
+
+### Added
+
+- **Model tuning in Settings.** Admins can now set the sampling **temperature**, **max output tokens**, the **request timeout**, and — for OpenRouter-style gateways — **model reasoning** (provider default, off, low, medium, or high) under Settings → Instance settings, or via `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS`, and `LLM_REASONING`. The reasoning control matters for hybrid models like Kimi K2.5 or DeepSeek V3.2, which think before answering by default — turning it off makes translations dramatically faster and cheaper; when left on the provider default no `reasoning` field is sent at all, so plain OpenAI endpoints are unaffected.
+- **Request logging.** The server now writes a production-style access log: one line per API request with method, path, status, and duration; failed requests include the error message, and an unhandled route exception is logged with its stack and returned as a clean 500 instead of dying silently. Watch it with `docker logs -f <container>`. (The `/healthcheck` probe is excluded so it doesn't flood the log.)
+
+---
+
 ## Translatarr v0.2.2
 
 **Long chats no longer crash mobile browsers — the timeline loads in pages as you scroll, with matching turn pagination in the API and all three SDKs.**

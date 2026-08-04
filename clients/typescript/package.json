@@ -1,6 +1,6 @@
 {
   "name": "@joshrmcdaniel/translatarr-client",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "TypeScript client for the Translatarr API.",
   "license": "AGPL-3.0-or-later",
   "author": "joshrmcdaniel",

@@ -12,6 +12,7 @@ import {
 import { translationResponseSchema, type TranslationResponse } from "../../../../lib/translation-schema";
 import { translationErrorResponse } from "../../../../lib/translation-error";
 import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../../../lib/translation-service";
+import { logged } from "../../../../lib/request-log";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
@@ -29,7 +30,7 @@ function pairMatchesChat(
   return within(sourceLang) && within(targetLang);
 }
 
-export async function GET(request: Request, context: RouteContext) {
+async function handleGET(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -58,7 +59,7 @@ export async function GET(request: Request, context: RouteContext) {
   return NextResponse.json(page);
 }
 
-export async function POST(request: Request, context: RouteContext) {
+async function handlePOST(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -120,3 +121,6 @@ export async function POST(request: Request, context: RouteContext) {
     return translationErrorResponse(error);
   }
 }
+
+export const GET = logged(handleGET);
+export const POST = logged(handlePOST);

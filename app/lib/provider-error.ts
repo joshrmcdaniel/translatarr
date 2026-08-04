@@ -13,6 +13,7 @@ export type ProviderErrorKind =
   | "bad_request"
   | "server"
   | "network"
+  | "timeout"
   | "unknown";
 
 /** A normalized failure from an upstream provider, carrying its HTTP status and a classified kind. */
@@ -93,5 +94,6 @@ export const providerErrorStatus: Record<ProviderErrorKind, number> = {
   bad_request: 502,
   server: 502,
   network: 504,
+  timeout: 504,
   unknown: 502,
 };

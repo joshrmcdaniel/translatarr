@@ -4,8 +4,9 @@ import { synthesizeBodySchema, type SynthesizeBody } from "../../../lib/request-
 import { resolveSpeechSettings } from "../../../lib/settings-store";
 import { synthesizeAudio } from "../../../lib/speech/provider-audio";
 import { speechErrorResponse } from "../../../lib/speech/speech-error";
+import { logged } from "../../../lib/request-log";
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -39,3 +40,5 @@ export async function POST(request: Request) {
     return speechErrorResponse(error);
   }
 }
+
+export const POST = logged(handlePOST);

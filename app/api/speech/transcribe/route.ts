@@ -4,10 +4,11 @@ import { isSupportedLanguage } from "../../../lib/languages";
 import { resolveSpeechSettings } from "../../../lib/settings-store";
 import { transcribeAudio } from "../../../lib/speech/provider-audio";
 import { speechErrorResponse } from "../../../lib/speech/speech-error";
+import { logged } from "../../../lib/request-log";
 
 const maxAudioBytes = 15 * 1024 * 1024;
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -54,3 +55,5 @@ export async function POST(request: Request) {
     return speechErrorResponse(error);
   }
 }
+
+export const POST = logged(handlePOST);

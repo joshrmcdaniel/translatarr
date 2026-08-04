@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { createApiKey, listApiKeys } from "../../lib/api-key-store";
 import { getSessionUser } from "../../lib/auth";
 import { createKeyBodySchema, type CreateKeyBody } from "../../lib/request-schemas";
+import { logged } from "../../lib/request-log";
 
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -13,7 +14,7 @@ export async function GET() {
   return NextResponse.json({ keys: listApiKeys(user.id) });
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -38,3 +39,6 @@ export async function POST(request: Request) {
   const { apiKey, token } = createApiKey({ userId: user.id, name: body.name, expiresAt: body.expiresAt ?? null });
   return NextResponse.json({ apiKey, token }, { status: 201 });
 }
+
+export const GET = logged(handleGET);
+export const POST = logged(handlePOST);

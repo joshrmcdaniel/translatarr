@@ -1,4 +1,5 @@
 import { getSessionUser } from "../../lib/auth";
+import { logged } from "../../lib/request-log";
 
 const page = `<!DOCTYPE html>
 <html lang="en">
@@ -24,7 +25,7 @@ const page = `<!DOCTYPE html>
 </html>
 `;
 
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -33,3 +34,5 @@ export async function GET(request: Request) {
 
   return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
+
+export const GET = logged(handleGET);

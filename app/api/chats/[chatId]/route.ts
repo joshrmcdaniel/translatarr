@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
 import { clearTurns, deleteChat, getChat, renameChat } from "../../../lib/chat-store";
 import { parseTurnLimit, updateChatBodySchema, type UpdateChatBody } from "../../../lib/request-schemas";
+import { logged } from "../../../lib/request-log";
 
 type RouteContext = {
   params: Promise<{ chatId: string }>;
@@ -10,7 +11,7 @@ type RouteContext = {
 const invalidLimitResponse = () =>
   NextResponse.json({ error: "limit must be an integer between 1 and 200." }, { status: 400 });
 
-export async function GET(request: Request, context: RouteContext) {
+async function handleGET(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -35,7 +36,7 @@ export async function GET(request: Request, context: RouteContext) {
   return NextResponse.json({ chat });
 }
 
-export async function PATCH(request: Request, context: RouteContext) {
+async function handlePATCH(request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -69,7 +70,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   return NextResponse.json({ chat });
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+async function handleDELETE(_request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -84,3 +85,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const GET = logged(handleGET);
+export const PATCH = logged(handlePATCH);
+export const DELETE = logged(handleDELETE);

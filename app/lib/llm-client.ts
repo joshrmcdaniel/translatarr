@@ -9,6 +9,14 @@ export interface LLMClient {
 }
 
 function toAnthropicProviderError(error: unknown): ProviderError {
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return new ProviderError({
+      message: "The Anthropic request timed out.",
+      kind: "timeout",
+      detail: error.message,
+    });
+  }
+
   if (error instanceof Anthropic.APIError) {
     const status = typeof error.status === "number" ? error.status : null;
 
@@ -28,15 +36,17 @@ function toAnthropicProviderError(error: unknown): ProviderError {
 }
 
 export function createLLMClient(settings: ResolvedLLMSettings): LLMClient {
-  if (!settings.apiKey) {
+  const { apiKey } = settings;
+
+  if (!apiKey) {
     throw new Error("LLM API key is not configured. Add one in Settings or set LLM_API_KEY.");
   }
 
   switch (settings.provider) {
     case "openai-compatible":
-      return new OpenAICompatibleClient(settings.apiKey, settings.model, settings.baseUrl);
+      return new OpenAICompatibleClient({ ...settings, apiKey });
     case "anthropic":
-      return new AnthropicClient(settings.apiKey, settings.model, settings.baseUrl);
+      return new AnthropicClient({ ...settings, apiKey });
     case "custom":
       return new StubClient(settings.provider);
     default:
@@ -48,38 +58,58 @@ function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/, "").replace(/\/chat\/completions$/, "");
 }
 
+function isAbortTimeout(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
 class OpenAICompatibleClient implements LLMClient {
   private readonly baseUrl: string;
 
-  constructor(
-    private readonly apiKey: string,
-    private readonly model: string,
-    baseUrl: string,
-  ) {
-    this.baseUrl = normalizeBaseUrl(baseUrl);
+  constructor(private readonly settings: ResolvedLLMSettings & { apiKey: string }) {
+    this.baseUrl = normalizeBaseUrl(settings.baseUrl);
   }
 
   async complete(systemPrompt: string, userText: string): Promise<string> {
+    const body: Record<string, unknown> = {
+      model: this.settings.model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userText },
+      ],
+      temperature: this.settings.temperature,
+      max_tokens: this.settings.maxTokens,
+      response_format: { type: "json_object" },
+    };
+
+    // OpenRouter-style reasoning control; omitted entirely when unset so vanilla
+    // OpenAI endpoints (which reject unknown parameters) are unaffected.
+    if (this.settings.reasoning === "off") {
+      body.reasoning = { enabled: false };
+    } else if (this.settings.reasoning !== null) {
+      body.reasoning = { effort: this.settings.reasoning };
+    }
+
     let response: Response;
 
     try {
       response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.settings.apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userText },
-          ],
-          temperature: 0.2,
-          response_format: { type: "json_object" },
-        }),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.settings.timeoutMs),
       });
     } catch (error) {
+      if (isAbortTimeout(error)) {
+        throw new ProviderError({
+          message: `The LLM request exceeded the ${Math.round(this.settings.timeoutMs / 1000)}s timeout.`,
+          kind: "timeout",
+          detail: `model=${this.settings.model}`,
+        });
+      }
+
       throw new ProviderError({
         message: `Could not reach the LLM provider at ${this.baseUrl}.`,
         kind: "network",
@@ -111,19 +141,21 @@ class OpenAICompatibleClient implements LLMClient {
 class AnthropicClient implements LLMClient {
   private readonly client: Anthropic;
 
-  constructor(
-    apiKey: string,
-    private readonly model: string,
-    baseUrl: string,
-  ) {
-    this.client = new Anthropic({ apiKey, baseURL: baseUrl });
+  constructor(private readonly settings: ResolvedLLMSettings & { apiKey: string }) {
+    this.client = new Anthropic({
+      apiKey: settings.apiKey,
+      baseURL: settings.baseUrl,
+      timeout: settings.timeoutMs,
+      maxRetries: 1,
+    });
   }
 
   async complete(systemPrompt: string, userText: string): Promise<string> {
     try {
       const response = await this.client.messages.parse({
-        model: this.model,
-        max_tokens: 8192,
+        model: this.settings.model,
+        max_tokens: this.settings.maxTokens,
+        temperature: this.settings.temperature,
         system: systemPrompt,
         messages: [{ role: "user", content: userText }],
         output_config: { format: zodOutputFormat(translationResponseSchema) },

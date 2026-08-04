@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
+import { logged } from "../../../lib/request-log";
 
 // The Swagger UI assets, copied out of swagger-ui-dist into .swagger-ui/ by the
 // `swagger:ui` script. Served here (rather than from public/) so they sit under
@@ -20,7 +21,7 @@ type RouteContext = {
   params: Promise<{ asset: string }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+async function handleGET(_request: Request, context: RouteContext) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -45,3 +46,5 @@ export async function GET(_request: Request, context: RouteContext) {
     headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=3600" },
   });
 }
+
+export const GET = logged(handleGET);

@@ -22,6 +22,15 @@ export type SpeechEngine = "browser" | "provider";
 
 export const speechEngines: readonly SpeechEngine[] = ["browser", "provider"];
 
+/**
+ * Reasoning override sent to OpenRouter-style gateways: `off` disables thinking
+ * on hybrid models, the effort levels request it explicitly. Unset (`null`)
+ * omits the parameter entirely, which keeps vanilla OpenAI endpoints happy.
+ */
+export type LLMReasoningMode = "off" | "low" | "medium" | "high";
+
+export const llmReasoningModes: readonly LLMReasoningMode[] = ["off", "low", "medium", "high"];
+
 /** Instance-wide overrides persisted in `app_settings`. `null` = use env/default. */
 export type SettingsOverrides = {
   provider: LLMProvider | null;
@@ -29,6 +38,13 @@ export type SettingsOverrides = {
   model: string | null;
   baseUrl: string | null;
   systemPrompt: string | null;
+  /** Sampling temperature (0-2). */
+  temperature: number | null;
+  /** Completion token cap sent with every request. */
+  maxTokens: number | null;
+  reasoning: LLMReasoningMode | null;
+  /** Provider request timeout in milliseconds. */
+  timeoutMs: number | null;
 };
 
 /** Per-user preference overrides. `null` = use the instance default. */
@@ -44,6 +60,11 @@ export type ResolvedLLMSettings = {
   model: string;
   baseUrl: string;
   systemPrompt: string | null;
+  temperature: number;
+  maxTokens: number;
+  /** `null` = provider default (no reasoning parameter sent). */
+  reasoning: LLMReasoningMode | null;
+  timeoutMs: number;
 };
 
 /** Instance-wide speech overrides persisted in `app_settings` under `speech.*` keys. */
@@ -99,6 +120,10 @@ export type SettingsView = {
     model: string | null;
     baseUrl: string | null;
     systemPrompt: string | null;
+    temperature: number | null;
+    maxTokens: number | null;
+    reasoning: LLMReasoningMode | null;
+    timeoutMs: number | null;
     hasStoredApiKey: boolean;
     /** Whether the periodic GitHub update check is on (resolved: override -> env -> default). */
     updateCheckEnabled: boolean;

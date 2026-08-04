@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser, hashPassword } from "../../lib/auth";
 import { createUser, listUsers } from "../../lib/user-store";
+import { logged } from "../../lib/request-log";
 
 const createUserSchema = z.object({
   username: z
@@ -12,7 +13,7 @@ const createUserSchema = z.object({
   role: z.enum(["admin", "user"]),
 });
 
-export async function GET() {
+async function handleGET() {
   const user = await getSessionUser();
 
   if (!user) {
@@ -26,7 +27,7 @@ export async function GET() {
   return NextResponse.json({ users: listUsers() });
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -59,3 +60,6 @@ export async function POST(request: Request) {
     throw error;
   }
 }
+
+export const GET = logged(handleGET);
+export const POST = logged(handlePOST);

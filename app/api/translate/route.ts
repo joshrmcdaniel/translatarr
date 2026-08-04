@@ -4,8 +4,9 @@ import { getChat } from "../../lib/chat-store";
 import { translateBodySchema, type TranslateBody } from "../../lib/request-schemas";
 import { translationErrorResponse } from "../../lib/translation-error";
 import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../lib/translation-service";
+import { logged } from "../../lib/request-log";
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -39,3 +40,5 @@ export async function POST(request: Request) {
     return translationErrorResponse(error);
   }
 }
+
+export const POST = logged(handlePOST);

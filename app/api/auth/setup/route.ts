@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hashPassword, startSession } from "../../../lib/auth";
 import { claimOrphanChats, countUsers, createUser } from "../../../lib/user-store";
+import { logged } from "../../../lib/request-log";
 
 const setupSchema = z.object({
   username: z
@@ -11,7 +12,7 @@ const setupSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: z.infer<typeof setupSchema>;
 
   try {
@@ -33,3 +34,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ user }, { status: 201 });
 }
+
+export const POST = logged(handlePOST);
