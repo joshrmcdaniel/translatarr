@@ -104,9 +104,9 @@ export class TranslatarrClient {
      */
     async translate(
         text: string,
-        options: { sourceLang: SourceLang; targetLang: TargetLang; chatId?: string },
+        options: { sourceLang: SourceLang; targetLang: TargetLang; chatId?: string; tone?: string },
     ): Promise<TranslationResponse> {
-        const body = core.translateBody(text, options.sourceLang, options.targetLang, options.chatId);
+        const body = core.translateBody(text, options.sourceLang, options.targetLang, options.chatId, options.tone);
         return core.readTranslation(await this.#sendJson("POST", "/api/translate", { json: body }));
     }
 
@@ -179,9 +179,9 @@ export class TranslatarrClient {
     async addTurn(
         chatId: string,
         text: string,
-        options: { sourceLang: SourceLang; targetLang: TargetLang; result?: TranslationResponse },
+        options: { sourceLang: SourceLang; targetLang: TargetLang; result?: TranslationResponse; tone?: string },
     ): Promise<ChatDetail> {
-        const body = core.createTurnBody(text, options.sourceLang, options.targetLang, options.result);
+        const body = core.createTurnBody(text, options.sourceLang, options.targetLang, options.result, options.tone);
         return core.readChat(
             await this.#sendJson("POST", `/api/chats/${encodeURIComponent(chatId)}/turns`, { json: body }),
         );
@@ -194,8 +194,8 @@ export class TranslatarrClient {
     }
 
     /** Re-run a turn's translation, optionally with edited `text`, as a new branch. */
-    async retranslateTurn(chatId: string, turnId: string, options: { text?: string } = {}): Promise<ChatDetail> {
-        const body = core.retranslateBody(options.text);
+    async retranslateTurn(chatId: string, turnId: string, options: { text?: string; tone?: string } = {}): Promise<ChatDetail> {
+        const body = core.retranslateBody(options.text, options.tone);
         return core.readChat(await this.#turnPatch(chatId, turnId, body));
     }
 

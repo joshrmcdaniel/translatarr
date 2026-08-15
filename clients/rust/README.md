@@ -41,7 +41,7 @@ async fn main() -> translatarr_client::Result<()> {
     )?;
 
     let result = tra
-        .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None)
+        .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None, None)
         .await?;
     let best = &result.translations[0];
     println!("{} ({:?})", best.text, best.romanization);
@@ -71,10 +71,10 @@ avoid a duplicate LLM call, pass the `result` you already have:
 # async fn run(tra: TranslatarrClient) -> translatarr_client::Result<()> {
 let chat = tra.create_chat(LanguageCode::En, LanguageCode::Ja, None).await?;
 let preview = tra
-    .translate("Let's ship it", LanguageCode::En, LanguageCode::Ja, Some(&chat.id))
+    .translate("Let's ship it", LanguageCode::En, LanguageCode::Ja, Some(&chat.id), None)
     .await?;
 let chat = tra
-    .add_turn(&chat.id, "Let's ship it", LanguageCode::En, LanguageCode::Ja, Some(&preview))
+    .add_turn(&chat.id, "Let's ship it", LanguageCode::En, LanguageCode::Ja, Some(&preview), None)
     .await?;
 # Ok(())
 # }

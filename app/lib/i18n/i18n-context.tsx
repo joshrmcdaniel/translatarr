@@ -14,6 +14,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { ApiError } from "../api-error";
 import type { SpeechError } from "../speech/speech-client";
 import { localizedLanguageName } from "./language-names";
+import { localizedToneName } from "./tone-names";
 import { catalogs, detectBrowserLocale, formatMessage, type Locale, type MessageKey } from "./messages";
 
 export type TranslateParams = Record<string, string | number>;
@@ -25,6 +26,7 @@ type I18nValue = {
   setLocale: (locale: Locale) => void;
   t: Translate;
   languageLabel: (code: string) => string;
+  toneLabel: (code: string) => string;
 };
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -49,6 +51,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setLocale,
       t,
       languageLabel: (code) => localizedLanguageName(locale, code),
+      toneLabel: (code) => localizedToneName(locale, code),
     };
   }, [locale, setLocale]);
 

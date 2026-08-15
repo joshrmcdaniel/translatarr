@@ -34,7 +34,7 @@ async function handlePOST(request: Request) {
   }
 
   try {
-    const result = await translateText({ text: body.text, sourceLang: body.sourceLang, targetLang: body.targetLang, userId: user.id, context });
+    const result = await translateText({ text: body.text, sourceLang: body.sourceLang, targetLang: body.targetLang, userId: user.id, context, tone: body.tone });
     return NextResponse.json(result);
   } catch (error) {
     return translationErrorResponse(error);

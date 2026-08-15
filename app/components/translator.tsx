@@ -6,6 +6,7 @@ import type { ChatDetail, ChatSummary, ChatTurn } from "../lib/chat-types";
 import { apiErrorMessage, speechErrorMessage, useI18n } from "../lib/i18n/i18n-context";
 import { detectBrowserLocale, type Locale } from "../lib/i18n/messages";
 import { autoDetectLanguage, languages } from "../lib/languages";
+import { MAX_TONE_CHARS, tonePresets } from "../lib/tones";
 import type { SettingsPayload, SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
@@ -19,6 +20,8 @@ import { VoiceMode } from "./voice-mode";
 
 const MAX_CHARS = 12000;
 const DEBOUNCE_MS = 1500;
+/** Sentinel <option> value for the tone selector's free-text mode. */
+const CUSTOM_TONE = "__custom__";
 const UPDATE_DISMISSED_KEY = "translatarr:update-dismissed";
 /** Turns fetched per page; the timeline starts on the newest page and loads older ones on scroll. */
 const TURN_PAGE_SIZE = 10;
@@ -36,10 +39,13 @@ type PendingTurn = {
 };
 
 export function Translator({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const { t, languageLabel, setLocale } = useI18n();
+  const { t, languageLabel, toneLabel, setLocale } = useI18n();
   const [text, setText] = useState("");
   const [sourceLang, setSourceLang] = useState(autoDetectLanguage.code);
   const [targetLang, setTargetLang] = useState("es");
+  // The tone <select>'s raw value: "" (none), a preset code, or CUSTOM_TONE.
+  const [tone, setTone] = useState("");
+  const [customTone, setCustomTone] = useState("");
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<ChatDetail | null>(null);
   const [livePreview, setLivePreview] = useState(false);
@@ -62,7 +68,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [loadingOlderTurns, setLoadingOlderTurns] = useState(false);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
-  const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string } | null>(null);
+  const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string; tone: string } | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const dictationBase = useRef("");
   /** Ids of turns added since the last render of the whole chat; only these play the entry animation. */
@@ -76,6 +82,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const speechOutput = useSpeechOutput(speechConfig);
 
   const trimmedText = text.trim();
+  // The tone string actually sent: free text when custom, else the preset code, else "" (none).
+  const effectiveTone = tone === CUSTOM_TONE ? customTone.trim() : tone;
   const isTooLong = text.length > MAX_CHARS;
   const canSend = Boolean(trimmedText) && !isTooLong && sendStatus !== "loading";
   const latestResult = previewResult ?? activeChat?.turns.at(-1)?.result ?? null;
@@ -198,13 +206,13 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       setError("");
 
       try {
-        const result = await requestTranslation(trimmedText, sourceLang, targetLang, controller.signal, activeChat?.id);
+        const result = await requestTranslation(trimmedText, sourceLang, targetLang, controller.signal, activeChat?.id, effectiveTone);
 
         if (previewRequestId.current !== currentRequest) {
           return;
         }
 
-        previewFor.current = { text: trimmedText, sourceLang, targetLang };
+        previewFor.current = { text: trimmedText, sourceLang, targetLang, tone: effectiveTone };
         setPreviewResult(result);
         setPreviewStatus("success");
       } catch (translationError) {
@@ -222,7 +230,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [trimmedText, sourceLang, targetLang, livePreview, isTooLong, activeChat?.id, t]);
+  }, [trimmedText, sourceLang, targetLang, effectiveTone, livePreview, isTooLong, activeChat?.id, t]);
 
   const detectedLabel = useMemo(() => {
     if (!latestResult) {
@@ -367,7 +375,8 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       previewResult &&
       previewFor.current?.text === submittedText &&
       previewFor.current.sourceLang === sourceLang &&
-      previewFor.current.targetLang === targetLang
+      previewFor.current.targetLang === targetLang &&
+      previewFor.current.tone === effectiveTone
         ? previewResult
         : null;
 
@@ -382,7 +391,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       chat = activeChat ?? (await createChat(sourceLang, targetLang));
-      const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview);
+      const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview, effectiveTone);
 
       markFreshTurns(activeChat, updatedChat);
       setActiveChat(updatedChat);
@@ -971,6 +980,41 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 <span className={isTooLong ? "counter over" : "counter"}>
                   {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
                 </span>
+                <div className="tone-control">
+                  <label className="tone-field">
+                    <span>{t("translator.tone")}</span>
+                    <select
+                      value={tone}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setTone(next);
+                        if (next !== CUSTOM_TONE) {
+                          setCustomTone("");
+                        }
+                      }}
+                      aria-label={t("translator.tone")}
+                    >
+                      <option value="">{t("translator.toneNone")}</option>
+                      {tonePresets.map((code) => (
+                        <option key={code} value={code}>
+                          {toneLabel(code)}
+                        </option>
+                      ))}
+                      <option value={CUSTOM_TONE}>{t("translator.toneCustom")}</option>
+                    </select>
+                  </label>
+                  {tone === CUSTOM_TONE ? (
+                    <input
+                      type="text"
+                      className="tone-custom-input"
+                      value={customTone}
+                      onChange={(event) => setCustomTone(event.target.value)}
+                      placeholder={t("translator.toneCustomPlaceholder")}
+                      aria-label={t("translator.toneCustomPlaceholder")}
+                      maxLength={MAX_TONE_CHARS}
+                    />
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   className={speechInput.status === "listening" ? "ghost-button mic-button recording" : "ghost-button mic-button"}
@@ -1442,11 +1486,18 @@ async function addChatTurn(
   sourceLang: string,
   targetLang: string,
   precomputedResult: TranslationResponse | null = null,
+  tone = "",
 ) {
   const response = await fetch(`/api/chats/${chatId}/turns?limit=${TURN_PAGE_SIZE}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, sourceLang, targetLang, ...(precomputedResult ? { result: precomputedResult } : {}) }),
+    body: JSON.stringify({
+      text,
+      sourceLang,
+      targetLang,
+      ...(tone ? { tone } : {}),
+      ...(precomputedResult ? { result: precomputedResult } : {}),
+    }),
     signal: AbortSignal.timeout(TRANSLATE_TIMEOUT_MS),
   });
 
@@ -1514,12 +1565,13 @@ async function requestTranslation(
   targetLang: string,
   signal?: AbortSignal,
   chatId?: string,
+  tone = "",
 ) {
   const timeout = AbortSignal.timeout(TRANSLATE_TIMEOUT_MS);
   const response = await fetch("/api/translate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, sourceLang, targetLang, chatId }),
+    body: JSON.stringify({ text, sourceLang, targetLang, chatId, ...(tone ? { tone } : {}) }),
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
 

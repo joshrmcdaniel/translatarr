@@ -58,9 +58,17 @@ def result_to_payload(result: TranslationResponse | JsonObject) -> JsonObject:
 
 # --- request bodies -------------------------------------------------------
 
-def translate_body(text: str, source_lang: str, target_lang: str, chat_id: str | None) -> JsonObject:
+def translate_body(
+    text: str, source_lang: str, target_lang: str, chat_id: str | None, tone: str | None
+) -> JsonObject:
     return _without_none(
-        {"text": text, "sourceLang": source_lang, "targetLang": target_lang, "chatId": chat_id}
+        {
+            "text": text,
+            "sourceLang": source_lang,
+            "targetLang": target_lang,
+            "chatId": chat_id,
+            "tone": tone,
+        }
     )
 
 
@@ -77,8 +85,11 @@ def create_turn_body(
     source_lang: str,
     target_lang: str,
     result: TranslationResponse | JsonObject | None,
+    tone: str | None,
 ) -> JsonObject:
-    body: JsonObject = {"text": text, "sourceLang": source_lang, "targetLang": target_lang}
+    body: JsonObject = _without_none(
+        {"text": text, "sourceLang": source_lang, "targetLang": target_lang, "tone": tone}
+    )
     if result is not None:
         body["result"] = result_to_payload(result)
     return body
@@ -88,8 +99,8 @@ def select_option_body(option: int) -> JsonObject:
     return {"selectedOption": option}
 
 
-def retranslate_body(text: str | None) -> JsonObject:
-    return _without_none({"action": "retranslate", "text": text})
+def retranslate_body(text: str | None, tone: str | None) -> JsonObject:
+    return _without_none({"action": "retranslate", "text": text, "tone": tone})
 
 
 def synthesize_body(text: str, lang: str, voice: str | None) -> JsonObject:

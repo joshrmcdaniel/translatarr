@@ -11,9 +11,19 @@
 
 import { z } from "zod/v4";
 import { autoDetectLanguage, languages, type LanguageCode } from "./languages";
+import { MAX_TONE_CHARS } from "./tones";
 
 const MAX_TEXT_CHARS = 12000;
 const MAX_TTS_CHARS = 4096;
+
+/** An optional emotion/attitude the translation should convey; omit for none. */
+const toneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_TONE_CHARS)
+  .optional()
+  .describe("Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation.");
 
 const supportedCodes = languages.map((language) => language.code);
 
@@ -27,6 +37,7 @@ export const translateBodySchema = z.object({
   text: z.string().trim().min(1).max(MAX_TEXT_CHARS),
   sourceLang: sourceLangSchema,
   targetLang: targetLangSchema,
+  tone: toneSchema,
   chatId: z.string().optional().describe("Borrow this chat's recent turns as context; the result is not persisted."),
 });
 
@@ -45,6 +56,7 @@ export const createTurnBodySchema = z.object({
   text: z.string().trim().min(1).max(MAX_TEXT_CHARS),
   sourceLang: sourceLangSchema,
   targetLang: targetLangSchema,
+  tone: toneSchema,
   result: z
     .unknown()
     .optional()
@@ -53,7 +65,7 @@ export const createTurnBodySchema = z.object({
 
 export const updateTurnBodySchema = z.union([
   z.object({ selectedOption: z.number().int().min(0) }),
-  z.object({ action: z.literal("retranslate"), text: z.string().trim().min(1).max(MAX_TEXT_CHARS).optional() }),
+  z.object({ action: z.literal("retranslate"), text: z.string().trim().min(1).max(MAX_TEXT_CHARS).optional(), tone: toneSchema }),
   z.object({ action: z.literal("switchBranch") }),
 ]);
 

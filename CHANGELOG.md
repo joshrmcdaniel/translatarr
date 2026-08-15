@@ -1,6 +1,6 @@
 ## Translatarr v0.2.3
 
-**Slow models no longer spin forever — request timeouts with send recovery, model tuning in Settings, and a production-style request log.**
+**Slow models no longer spin forever — request timeouts with send recovery, model tuning in Settings, an optional tone selector, and a production-style request log.**
 
 ### Fixed
 
@@ -8,6 +8,7 @@
 
 ### Added
 
+- **Optional tone/emotion.** A new tone dropdown sits in the composer, next to the character counter and Mic: pick a preset (friendly, formal, polite, playful, affectionate, excited, confident, angry, urgent, apologetic, sad) or choose **Custom…** to describe any tone in your own words, and every translation option is biased toward it. It's off by default — with nothing selected the prompt is unchanged and translations stay neutral — and it's transient per request, never stored on the turn. Preset names are localized across all 27 UI locales. The optional `tone` field (free text, ≤60 characters) is also accepted by `POST /api/translate`, the `/turns` POST, and the `retranslate` action, documented in the Swagger reference, exposed by the MCP `translate` and `add_turn` tools, and available as an optional argument on `translate`/`add_turn`/`retranslate_turn` in all three client SDKs. When set, the server appends one prompt clause that treats the requested tone as a style descriptor — never an instruction to obey — so a free-text tone can't hijack the translation. This is a translation *input*, distinct from the per-option `tone` label the model already reports about each result.
 - **Model tuning in Settings.** Admins can now set the sampling **temperature**, **max output tokens**, the **request timeout**, and — for OpenRouter-style gateways — **model reasoning** (provider default, off, low, medium, or high) under Settings → Instance settings, or via `LLM_TEMPERATURE`, `LLM_MAX_TOKENS`, `LLM_TIMEOUT_MS`, and `LLM_REASONING`. The reasoning control matters for hybrid models like Kimi K2.5 or DeepSeek V3.2, which think before answering by default — turning it off makes translations dramatically faster and cheaper; when left on the provider default no `reasoning` field is sent at all, so plain OpenAI endpoints are unaffected.
 - **Request logging.** The server now writes a production-style access log: one line per API request with method, path, status, and duration; failed requests include the error message, and an unhandled route exception is logged with its stack and returned as a clean 500 instead of dying silently. Watch it with `docker logs -f <container>`. (The `/healthcheck` probe is excluded so it doesn't flood the log.)
 

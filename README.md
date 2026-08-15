@@ -12,6 +12,7 @@ Structured translations for your homelab. Provider-agnostic LLM translation app 
 
 - **Ranked translation options** — every request returns 2–3 natural translations, best first, each tagged with its register (formal → vulgar/slang, with native politeness terms) and tone (playful, mocking, flirtatious, …)
 - **Context-aware** — within a chat, recent turns are sent along as context, so pronouns, word senses, names, and formality carry across messages ("She starts on Monday" knows who *she* is)
+- **Tone control** — optionally steer a translation toward an emotion or attitude (friendly, formal, angry, apologetic, … or your own free-text tone) from a dropdown by the composer; leave it unset for a neutral translation
 - **Faithful by design** — translates slang, profanity, and sensitive text at full intensity and labels it, instead of softening or censoring it
 - **Back-translation** — each option includes a translation back into the source language so you can verify the meaning before you send it to someone
 - **Key-word glossary** — a per-option breakdown mapping each meaningful word or phrase of your input to its counterpart in the translation

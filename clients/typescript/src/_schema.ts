@@ -382,6 +382,8 @@ export interface operations {
                     sourceLang: "auto" | "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
                     /** @enum {string} */
                     targetLang: "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
+                    /** @description Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation. */
+                    tone?: string;
                     /** @description Borrow this chat's recent turns as context; the result is not persisted. */
                     chatId?: string;
                 };
@@ -605,6 +607,8 @@ export interface operations {
                     sourceLang: "auto" | "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
                     /** @enum {string} */
                     targetLang: "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
+                    /** @description Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation. */
+                    tone?: string;
                     /** @description Optional precomputed TranslationResponse for this exact text, persisted without a second LLM call. */
                     result?: unknown;
                 };
@@ -650,6 +654,8 @@ export interface operations {
                     /** @constant */
                     action: "retranslate";
                     text?: string;
+                    /** @description Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation. */
+                    tone?: string;
                 } | {
                     /** @constant */
                     action: "switchBranch";

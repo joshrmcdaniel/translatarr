@@ -94,13 +94,15 @@ class TranslatarrClient:
         source_lang: SourceLang,
         target_lang: TargetLang,
         chat_id: str | None = None,
+        tone: str | None = None,
     ) -> TranslationResponse:
         """Translate `text` without persisting it.
 
         Pass `chat_id` to borrow that chat's recent turns as disambiguation
-        context; the result is still not stored.
+        context; the result is still not stored. Pass `tone` to bias the
+        translation toward an emotion/attitude (e.g. ``"friendly"``).
         """
-        body = core.translate_body(text, source_lang, target_lang, chat_id)
+        body = core.translate_body(text, source_lang, target_lang, chat_id, tone)
         return core.read_translation(self._send("POST", "/api/translate", json=body).json())
 
     # --- chats -----------------------------------------------------------
@@ -169,13 +171,16 @@ class TranslatarrClient:
         source_lang: SourceLang,
         target_lang: TargetLang,
         result: TranslationResponse | JsonObject | None = None,
+        tone: str | None = None,
     ) -> ChatDetail:
         """Translate `text` and append it to a chat as a new turn.
 
         Supply `result` (a `TranslationResponse` already obtained for this exact
-        text and language pair) to persist it without a second LLM call.
+        text and language pair) to persist it without a second LLM call. Pass
+        `tone` to bias a freshly computed translation toward an emotion/attitude
+        (ignored when `result` is supplied).
         """
-        body = core.create_turn_body(text, source_lang, target_lang, result)
+        body = core.create_turn_body(text, source_lang, target_lang, result, tone)
         return core.read_chat(self._send("POST", f"/api/chats/{chat_id}/turns", json=body).json())
 
     def select_option(self, chat_id: str, turn_id: str, *, option: int) -> ChatDetail:
@@ -183,9 +188,11 @@ class TranslatarrClient:
         body = core.select_option_body(option)
         return core.read_chat(self._send("PATCH", f"/api/chats/{chat_id}/turns/{turn_id}", json=body).json())
 
-    def retranslate_turn(self, chat_id: str, turn_id: str, *, text: str | None = None) -> ChatDetail:
-        """Re-run a turn's translation, optionally with edited `text`, as a new branch."""
-        body = core.retranslate_body(text)
+    def retranslate_turn(
+        self, chat_id: str, turn_id: str, *, text: str | None = None, tone: str | None = None
+    ) -> ChatDetail:
+        """Re-run a turn's translation, optionally with edited `text` and a `tone`, as a new branch."""
+        body = core.retranslate_body(text, tone)
         return core.read_chat(self._send("PATCH", f"/api/chats/{chat_id}/turns/{turn_id}", json=body).json())
 
     def switch_branch(self, chat_id: str, turn_id: str) -> ChatDetail:

@@ -67,8 +67,9 @@ export function translateBody(
     sourceLang: string,
     targetLang: string,
     chatId: string | undefined,
+    tone: string | undefined,
 ): JsonObject {
-    return withoutNullish({ text, sourceLang, targetLang, chatId });
+    return withoutNullish({ text, sourceLang, targetLang, chatId, tone });
 }
 
 export function createChatBody(
@@ -88,8 +89,9 @@ export function createTurnBody(
     sourceLang: string,
     targetLang: string,
     result: TranslationResponse | undefined,
+    tone: string | undefined,
 ): JsonObject {
-    const body: JsonObject = { text, sourceLang, targetLang };
+    const body: JsonObject = withoutNullish({ text, sourceLang, targetLang, tone });
     if (result !== undefined) {
         body.result = resultToPayload(result);
     }
@@ -100,8 +102,8 @@ export function selectOptionBody(option: number): JsonObject {
     return { selectedOption: option };
 }
 
-export function retranslateBody(text: string | undefined): JsonObject {
-    return withoutNullish({ action: "retranslate", text });
+export function retranslateBody(text: string | undefined, tone: string | undefined): JsonObject {
+    return withoutNullish({ action: "retranslate", text, tone });
 }
 
 export function synthesizeBody(text: string, lang: string, voice: string | undefined): JsonObject {

@@ -79,7 +79,7 @@ enum Body {
 ///     ClientOptions::with_token("tra_…"),
 /// )?;
 /// let result = tra
-///     .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None)
+///     .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None, None)
 ///     .await?;
 /// println!("{}", result.translations[0].text);
 /// # Ok(())
@@ -160,15 +160,17 @@ impl TranslatarrClient {
 
     /// Translate `text` without persisting it. Pass `chat_id` to borrow that
     /// chat's recent turns as disambiguation context; the result is still not
-    /// stored.
+    /// stored. Pass `tone` to bias the translation toward an emotion/attitude
+    /// (e.g. `"friendly"`).
     pub async fn translate(
         &self,
         text: &str,
         source_lang: LanguageCode,
         target_lang: LanguageCode,
         chat_id: Option<&str>,
+        tone: Option<&str>,
     ) -> Result<TranslationResponse> {
-        let body = core::translate_body(text, &source_lang, &target_lang, chat_id);
+        let body = core::translate_body(text, &source_lang, &target_lang, chat_id, tone);
         self.request_json(Method::POST, "/api/translate", Body::Json(body)).await
     }
 
@@ -248,7 +250,9 @@ impl TranslatarrClient {
 
     /// Translate `text` and append it to a chat as a new turn. Supply `result`
     /// (a [`TranslationResponse`] already obtained for this exact text and
-    /// language pair) to persist it without a second LLM call.
+    /// language pair) to persist it without a second LLM call. Pass `tone` to
+    /// bias a freshly computed translation toward an emotion/attitude (ignored
+    /// when `result` is supplied).
     pub async fn add_turn(
         &self,
         chat_id: &str,
@@ -256,9 +260,10 @@ impl TranslatarrClient {
         source_lang: LanguageCode,
         target_lang: LanguageCode,
         result: Option<&TranslationResponse>,
+        tone: Option<&str>,
     ) -> Result<ChatDetail> {
         let path = format!("/api/chats/{}/turns", core::encode_segment(chat_id));
-        let body = core::create_turn_body(text, &source_lang, &target_lang, result);
+        let body = core::create_turn_body(text, &source_lang, &target_lang, result, tone);
         let env: core::ChatEnvelope =
             self.request_json(Method::POST, &path, Body::Json(body)).await?;
         Ok(env.chat)
@@ -278,15 +283,16 @@ impl TranslatarrClient {
         Ok(env.chat)
     }
 
-    /// Re-run a turn's translation, optionally with edited `text`, as a new branch.
+    /// Re-run a turn's translation, optionally with edited `text` and a `tone`, as a new branch.
     pub async fn retranslate_turn(
         &self,
         chat_id: &str,
         turn_id: &str,
         text: Option<&str>,
+        tone: Option<&str>,
     ) -> Result<ChatDetail> {
         let path = Self::turn_path(chat_id, turn_id);
-        let body = core::retranslate_body(text);
+        let body = core::retranslate_body(text, tone);
         let env: core::ChatEnvelope =
             self.request_json(Method::PATCH, &path, Body::Json(body)).await?;
         Ok(env.chat)

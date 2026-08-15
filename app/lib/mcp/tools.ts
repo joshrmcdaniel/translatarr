@@ -15,6 +15,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addTurn, createChat, getChat, listChats } from "../chat-store";
 import { autoDetectLanguage, languages } from "../languages";
+import { MAX_TONE_CHARS } from "../tones";
 import { contextFromTurns, translateText } from "../translation-service";
 
 const MAX_TEXT_CHARS = 12000;
@@ -26,6 +27,12 @@ const sourceLangSchema = z
   .enum([autoDetectLanguage.code, ...supportedCodes])
   .describe("Source language code, or 'auto' to detect it.");
 const textSchema = z.string().min(1).max(MAX_TEXT_CHARS).describe("The text to translate.");
+const toneSchema = z
+  .string()
+  .min(1)
+  .max(MAX_TONE_CHARS)
+  .optional()
+  .describe("Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation.");
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -52,10 +59,11 @@ export function registerTranslatarrTools(server: McpServer): void {
         text: textSchema,
         sourceLang: sourceLangSchema,
         targetLang: targetLangSchema,
+        tone: toneSchema,
         chatId: z.string().min(1).optional().describe("Borrow this chat's recent turns as context."),
       },
     },
-    async ({ text, sourceLang, targetLang, chatId }, extra) => {
+    async ({ text, sourceLang, targetLang, tone, chatId }, extra) => {
       const userId = extra.authInfo?.clientId;
       if (!userId) {
         return errorResult("Not authenticated.");
@@ -71,7 +79,7 @@ export function registerTranslatarrTools(server: McpServer): void {
       }
 
       try {
-        const result = await translateText({ text, sourceLang, targetLang, userId, context });
+        const result = await translateText({ text, sourceLang, targetLang, userId, context, tone });
         return jsonResult(result);
       } catch (error) {
         return errorResult(describeError(error));
@@ -147,9 +155,10 @@ export function registerTranslatarrTools(server: McpServer): void {
         text: textSchema,
         sourceLang: sourceLangSchema,
         targetLang: targetLangSchema,
+        tone: toneSchema,
       },
     },
-    async ({ chatId, text, sourceLang, targetLang }, extra) => {
+    async ({ chatId, text, sourceLang, targetLang, tone }, extra) => {
       const userId = extra.authInfo?.clientId;
       if (!userId) {
         return errorResult("Not authenticated.");
@@ -167,6 +176,7 @@ export function registerTranslatarrTools(server: McpServer): void {
           targetLang,
           userId,
           context: contextFromTurns(existing.turns),
+          tone,
         });
         const chat = addTurn({ chatId, userId, result, text, sourceLang, targetLang });
         return chat ? jsonResult(chat) : errorResult("Chat not found.");

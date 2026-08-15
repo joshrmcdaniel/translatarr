@@ -13,7 +13,7 @@
 //!         ClientOptions::with_token("tra_…"),
 //!     )?;
 //!     let result = tra
-//!         .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None)
+//!         .translate("Good morning", LanguageCode::En, LanguageCode::Ja, None, None)
 //!         .await?;
 //!     println!("{}", result.translations[0].text);
 //!     Ok(())

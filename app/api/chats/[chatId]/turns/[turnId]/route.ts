@@ -70,6 +70,7 @@ async function handlePATCH(request: Request, context: RouteContext) {
       targetLang: turn.targetLang,
       userId: user.id,
       context: contextFromTurns(priorTurns?.turns ?? []),
+      tone: body.tone,
     });
     const updatedChat = branchTurn({ chatId, turnId, userId: user.id, text, result, turnLimit });
 

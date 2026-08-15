@@ -59,10 +59,14 @@ pub(crate) fn translate_body(
     source_lang: &LanguageCode,
     target_lang: &LanguageCode,
     chat_id: Option<&str>,
+    tone: Option<&str>,
 ) -> Value {
     let mut body = json!({ "text": text, "sourceLang": source_lang, "targetLang": target_lang });
     if let Some(id) = chat_id {
         body["chatId"] = json!(id);
+    }
+    if let Some(tone) = tone {
+        body["tone"] = json!(tone);
     }
     body
 }
@@ -88,8 +92,12 @@ pub(crate) fn create_turn_body(
     source_lang: &LanguageCode,
     target_lang: &LanguageCode,
     result: Option<&TranslationResponse>,
+    tone: Option<&str>,
 ) -> Value {
     let mut body = json!({ "text": text, "sourceLang": source_lang, "targetLang": target_lang });
+    if let Some(tone) = tone {
+        body["tone"] = json!(tone);
+    }
     if let Some(result) = result {
         body["result"] = serde_json::to_value(result).expect("TranslationResponse is serializable");
     }
@@ -100,10 +108,13 @@ pub(crate) fn select_option_body(option: u32) -> Value {
     json!({ "selectedOption": option })
 }
 
-pub(crate) fn retranslate_body(text: Option<&str>) -> Value {
+pub(crate) fn retranslate_body(text: Option<&str>, tone: Option<&str>) -> Value {
     let mut body = json!({ "action": "retranslate" });
     if let Some(text) = text {
         body["text"] = json!(text);
+    }
+    if let Some(tone) = tone {
+        body["tone"] = json!(tone);
     }
     body
 }
@@ -173,12 +184,25 @@ mod tests {
             "keyWords": []
         })).unwrap();
 
-        let body = create_turn_body("hello", &LanguageCode::En, &LanguageCode::Es, Some(&response));
+        let body = create_turn_body("hello", &LanguageCode::En, &LanguageCode::Es, Some(&response), None);
         let option = &body["result"]["translations"][0];
         assert!(option.get("register").is_none(), "register omitted when absent");
         assert!(option.get("tone").is_none(), "tone omitted when absent");
         assert!(option["romanization"].is_null(), "romanization present as null");
         assert_eq!(body["result"]["keyWords"], json!([]));
+        assert!(body.get("tone").is_none(), "request tone omitted when None");
+    }
+
+    #[test]
+    fn request_tone_included_when_set_and_omitted_when_none() {
+        let with = translate_body("hi", &LanguageCode::En, &LanguageCode::Es, None, Some("friendly"));
+        assert_eq!(with["tone"], json!("friendly"));
+
+        let without = translate_body("hi", &LanguageCode::En, &LanguageCode::Es, None, None);
+        assert!(without.get("tone").is_none(), "tone omitted when None");
+
+        let retranslate = retranslate_body(None, Some("angry"));
+        assert_eq!(retranslate["tone"], json!("angry"));
     }
 
     #[test]
