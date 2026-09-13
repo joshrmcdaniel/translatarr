@@ -384,7 +384,8 @@ button:disabled {
   letter-spacing: 0.005em;
 }
 
-.rename-button {
+.rename-button,
+.notes-button {
   min-height: 28px;
   padding: 0 10px;
   font-size: 0.74rem;
@@ -1201,6 +1202,10 @@ select:focus {
   animation: pop 220ms var(--ease-out) both;
 }
 
+.chat-notes-dialog {
+  width: min(480px, 100%);
+}
+
 .settings-header {
   display: flex;
   align-items: center;
@@ -1401,7 +1406,8 @@ select:focus {
   color: var(--text-hi);
 }
 
-.ghost-button.has-update {
+.ghost-button.has-update,
+.ghost-button.has-notes {
   position: relative;
 }
 

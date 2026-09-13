@@ -1,10 +1,20 @@
 import type { TranslationResponse } from "./translation-schema";
 
+/**
+ * Upper bound on a chat's `notes` — persistent background the user supplies for
+ * the whole conversation (domain, register, who's talking to whom). Shared by
+ * the client (textarea `maxLength`), `request-schemas.ts`, and the MCP tools so
+ * all three enforce the same limit.
+ */
+export const MAX_CHAT_NOTES_CHARS = 1000;
+
 export type ChatSummary = {
   id: string;
   title: string;
   sourceLang: string;
   targetLang: string;
+  /** Persistent background for this chat, injected into every translation's system prompt; null when unset. */
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 };

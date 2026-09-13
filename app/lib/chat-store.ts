@@ -12,6 +12,7 @@ type ChatRow = {
   updated_at: string;
   user_id: string | null;
   active_turn_id: string | null;
+  notes: string | null;
 };
 
 type TurnRow = {
@@ -44,9 +45,16 @@ function mapChat(row: ChatRow): ChatSummary {
     title: row.title,
     sourceLang: row.source_lang,
     targetLang: row.target_lang,
+    notes: row.notes,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Trims a chat-notes draft, collapsing whitespace-only input to null (cleared). */
+function normalizeNotes(notes: string | null | undefined): string | null {
+  const trimmed = notes?.trim();
+  return trimmed ? trimmed : null;
 }
 
 function mapTurn(row: TurnRow): StoredTurn | null {
@@ -93,15 +101,21 @@ export function listChats(userId: string): ChatSummary[] {
   return rows.map(mapChat);
 }
 
-export function createChat(input: { title?: string; sourceLang: string; targetLang: string; userId: string }) {
+export function createChat(input: {
+  title?: string;
+  sourceLang: string;
+  targetLang: string;
+  userId: string;
+  notes?: string | null;
+}) {
   const id = crypto.randomUUID();
   const title = input.title?.trim() || "New chat";
 
   getDb()
     .prepare(
-      "INSERT INTO chats (id, title, source_lang, target_lang, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+      "INSERT INTO chats (id, title, source_lang, target_lang, user_id, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
     )
-    .run(id, title, input.sourceLang, input.targetLang, input.userId);
+    .run(id, title, input.sourceLang, input.targetLang, input.userId, normalizeNotes(input.notes));
 
   return getChat(id, input.userId);
 }
@@ -437,6 +451,24 @@ export function renameChat(chatId: string, userId: string, title: string, turnLi
     .run(title, chatId, userId);
 
   return result.changes > 0 ? getChat(chatId, userId, { turnLimit }) : null;
+}
+
+/** Sets or clears (via null or blank input) a chat's persistent background notes. */
+export function updateChatNotes(chatId: string, userId: string, notes: string | null, turnLimit?: number) {
+  const result = getDb()
+    .prepare("UPDATE chats SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?")
+    .run(normalizeNotes(notes), chatId, userId);
+
+  return result.changes > 0 ? getChat(chatId, userId, { turnLimit }) : null;
+}
+
+/**
+ * A chat's notes without loading its turns, for callers (like the retranslate
+ * route) that only need the background to build a system prompt. Undefined when
+ * the chat doesn't exist or isn't the caller's.
+ */
+export function getChatNotes(chatId: string, userId: string): string | null | undefined {
+  return chatRow(chatId, userId)?.notes;
 }
 
 export function clearTurns(chatId: string, userId: string, turnLimit?: number) {

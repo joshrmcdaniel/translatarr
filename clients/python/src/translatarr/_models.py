@@ -211,6 +211,12 @@ class ChatSummary(BaseModel):
             description='A supported language code, or "auto" for source detection.',
         ),
     ]
+    notes: Annotated[
+        str | None,
+        Field(
+            description="Persistent background for this chat, injected into every translation's system prompt; null when unset."
+        ),
+    ]
     created_at: Annotated[datetime, Field(alias='createdAt')]
     updated_at: Annotated[datetime, Field(alias='updatedAt')]
 

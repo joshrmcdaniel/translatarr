@@ -10,6 +10,7 @@
  */
 
 import { z } from "zod/v4";
+import { MAX_CHAT_NOTES_CHARS } from "./chat-types";
 import { autoDetectLanguage, languages, type LanguageCode } from "./languages";
 import { MAX_TONE_CHARS } from "./tones";
 
@@ -24,6 +25,14 @@ const toneSchema = z
   .max(MAX_TONE_CHARS)
   .optional()
   .describe("Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation.");
+
+/** Persistent chat background, injected into every translation's system prompt; null clears it. */
+const notesSchema = z
+  .string()
+  .trim()
+  .max(MAX_CHAT_NOTES_CHARS)
+  .nullable()
+  .describe("Persistent background for this chat (domain, register, who's talking to whom); null clears it.");
 
 const supportedCodes = languages.map((language) => language.code);
 
@@ -45,11 +54,13 @@ export const createChatBodySchema = z.object({
   title: z.string().trim().max(80).optional(),
   sourceLang: sourceLangSchema,
   targetLang: targetLangSchema,
+  notes: notesSchema.optional().describe("Optional persistent background to set on the new chat."),
 });
 
 export const updateChatBodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("clear") }),
   z.object({ action: z.literal("rename"), title: z.string().trim().min(1).max(80) }),
+  z.object({ action: z.literal("setNotes"), notes: notesSchema }),
 ]);
 
 export const createTurnBodySchema = z.object({

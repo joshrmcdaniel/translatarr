@@ -428,12 +428,16 @@ export function buildOpenApiDocument() {
         TranslationResponse: jsonSchemaOf(translationResponseSchema),
         ChatSummary: {
           type: "object",
-          required: ["id", "title", "sourceLang", "targetLang", "createdAt", "updatedAt"],
+          required: ["id", "title", "sourceLang", "targetLang", "notes", "createdAt", "updatedAt"],
           properties: {
             id: { type: "string" },
             title: { type: "string" },
             sourceLang: languageRef,
             targetLang: languageRef,
+            notes: {
+              type: ["string", "null"],
+              description: "Persistent background for this chat, injected into every translation's system prompt; null when unset.",
+            },
             createdAt: dateTime,
             updatedAt: dateTime,
           },

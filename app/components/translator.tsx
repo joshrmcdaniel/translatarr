@@ -14,6 +14,7 @@ import { translationOutputLang, type TranslationOption, type TranslationResponse
 import type { UpdateStatus } from "../lib/update-check";
 import type { User } from "../lib/user-store";
 import { BrandSeal } from "./brand-seal";
+import { ChatNotesDialog } from "./chat-notes-dialog";
 import { SettingsDialog } from "./settings-dialog";
 import { UpdateBanner } from "./update-banner";
 import { VoiceMode } from "./voice-mode";
@@ -61,6 +62,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [speechConfig, setSpeechConfig] = useState<SpeechEffectiveView | null>(null);
   const [voiceModeOpen, setVoiceModeOpen] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -113,6 +115,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   useEffect(() => {
     setTitleDraft(activeChat?.title ?? "");
     setEditingTitle(false);
+    setNotesOpen(false);
   }, [activeChat?.id, activeChat?.title]);
 
   // Restores the scroll offset after older turns are prepended, before the browser paints,
@@ -572,6 +575,17 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     }
   }
 
+  async function saveChatNotes(notes: string) {
+    if (!activeChat) {
+      return;
+    }
+
+    const chat = await updateChatNotesRequest(activeChat.id, notes);
+    // The notes-update response carries a minimal turn window; keep the turns already loaded.
+    setActiveChat((current) => (current && current.id === chat.id ? { ...current, notes: chat.notes, updatedAt: chat.updatedAt } : current));
+    setChats((current) => upsertSummary(current, toSummary(chat)));
+  }
+
   function swapLanguages() {
     const nextSource = targetLang;
     const nextTarget =
@@ -793,6 +807,15 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                         }}
                       >
                         {t("common.rename")}
+                      </button>
+                      <button
+                        type="button"
+                        className={activeChat.notes ? "ghost-button notes-button has-notes" : "ghost-button notes-button"}
+                        aria-label={t("translator.chatNotesTitle")}
+                        onClick={() => setNotesOpen(true)}
+                      >
+                        {t("translator.chatNotes")}
+                        {activeChat.notes ? <span className="update-dot" aria-hidden="true" /> : null}
                       </button>
                     </>
                   )}
@@ -1045,6 +1068,15 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
         currentUserId={user.id}
         latestUpdate={latestUpdate}
       />
+
+      {activeChat ? (
+        <ChatNotesDialog
+          open={notesOpen}
+          notes={activeChat.notes}
+          onClose={() => setNotesOpen(false)}
+          onSave={saveChatNotes}
+        />
+      ) : null}
 
       {voiceModeOpen && speechConfig ? (
         <VoiceMode
@@ -1381,6 +1413,7 @@ function toSummary(chat: ChatDetail): ChatSummary {
     title: chat.title,
     sourceLang: chat.sourceLang,
     targetLang: chat.targetLang,
+    notes: chat.notes,
     createdAt: chat.createdAt,
     updatedAt: chat.updatedAt,
   };
@@ -1451,6 +1484,21 @@ async function renameChat(chatId: string, title: string) {
 
   if (!response.ok || !payload.chat) {
     throw new Error(payload.error ?? "Could not rename chat.");
+  }
+
+  return payload.chat;
+}
+
+async function updateChatNotesRequest(chatId: string, notes: string) {
+  const response = await fetch(`/api/chats/${chatId}?limit=1`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "setNotes", notes: notes || null }),
+  });
+  const payload = (await response.json()) as { chat?: ChatDetail; error?: string };
+
+  if (!response.ok || !payload.chat) {
+    throw new Error(payload.error ?? "Could not save chat notes.");
   }
 
   return payload.chat;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../lib/auth";
-import { clearTurns, deleteChat, getChat, renameChat } from "../../../lib/chat-store";
+import { clearTurns, deleteChat, getChat, renameChat, updateChatNotes } from "../../../lib/chat-store";
 import { parseTurnLimit, updateChatBodySchema, type UpdateChatBody } from "../../../lib/request-schemas";
 import { logged } from "../../../lib/request-log";
 
@@ -61,7 +61,11 @@ async function handlePATCH(request: Request, context: RouteContext) {
   }
 
   const chat =
-    body.action === "clear" ? clearTurns(chatId, user.id, turnLimit) : renameChat(chatId, user.id, body.title, turnLimit);
+    body.action === "clear"
+      ? clearTurns(chatId, user.id, turnLimit)
+      : body.action === "rename"
+        ? renameChat(chatId, user.id, body.title, turnLimit)
+        : updateChatNotes(chatId, user.id, body.notes, turnLimit);
 
   if (!chat) {
     return NextResponse.json({ error: "Chat not found." }, { status: 404 });

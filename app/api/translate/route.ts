@@ -22,6 +22,7 @@ async function handlePOST(request: Request) {
   }
 
   let context;
+  let notes: string | null | undefined;
 
   if (body.chatId) {
     const chat = getChat(body.chatId, user.id, { turnLimit: CONTEXT_TURN_LIMIT });
@@ -31,10 +32,19 @@ async function handlePOST(request: Request) {
     }
 
     context = contextFromTurns(chat.turns);
+    notes = chat.notes;
   }
 
   try {
-    const result = await translateText({ text: body.text, sourceLang: body.sourceLang, targetLang: body.targetLang, userId: user.id, context, tone: body.tone });
+    const result = await translateText({
+      text: body.text,
+      sourceLang: body.sourceLang,
+      targetLang: body.targetLang,
+      userId: user.id,
+      context,
+      tone: body.tone,
+      notes,
+    });
     return NextResponse.json(result);
   } catch (error) {
     return translationErrorResponse(error);

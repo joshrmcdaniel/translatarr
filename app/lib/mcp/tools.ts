@@ -14,6 +14,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { addTurn, createChat, getChat, listChats } from "../chat-store";
+import { MAX_CHAT_NOTES_CHARS } from "../chat-types";
 import { autoDetectLanguage, languages } from "../languages";
 import { MAX_TONE_CHARS } from "../tones";
 import { contextFromTurns, translateText } from "../translation-service";
@@ -33,6 +34,12 @@ const toneSchema = z
   .max(MAX_TONE_CHARS)
   .optional()
   .describe("Optional tone/emotion to convey (e.g. friendly, angry, apologetic); omit for a neutral translation.");
+const notesSchema = z
+  .string()
+  .min(1)
+  .max(MAX_CHAT_NOTES_CHARS)
+  .optional()
+  .describe("Optional persistent background for the chat (domain, register, who's talking to whom).");
 
 type ToolResult = { content: { type: "text"; text: string }[]; isError?: boolean };
 
@@ -54,13 +61,13 @@ export function registerTranslatarrTools(server: McpServer): void {
     {
       title: "Translate text",
       description:
-        "Translate text and return 2-3 ranked options, each with a key-word glossary, romanization, register/tone, and a back-translation. The result is not persisted. Pass chatId to borrow that chat's recent turns as disambiguation context.",
+        "Translate text and return 2-3 ranked options, each with a key-word glossary, romanization, register/tone, and a back-translation. The result is not persisted. Pass chatId to borrow that chat's recent turns as disambiguation context and apply its persistent notes.",
       inputSchema: {
         text: textSchema,
         sourceLang: sourceLangSchema,
         targetLang: targetLangSchema,
         tone: toneSchema,
-        chatId: z.string().min(1).optional().describe("Borrow this chat's recent turns as context."),
+        chatId: z.string().min(1).optional().describe("Borrow this chat's recent turns as context and apply its persistent notes."),
       },
     },
     async ({ text, sourceLang, targetLang, tone, chatId }, extra) => {
@@ -70,16 +77,18 @@ export function registerTranslatarrTools(server: McpServer): void {
       }
 
       let context;
+      let notes: string | null | undefined;
       if (chatId) {
         const chat = getChat(chatId, userId);
         if (!chat) {
           return errorResult("Chat not found.");
         }
         context = contextFromTurns(chat.turns);
+        notes = chat.notes;
       }
 
       try {
-        const result = await translateText({ text, sourceLang, targetLang, userId, context, tone });
+        const result = await translateText({ text, sourceLang, targetLang, userId, context, tone, notes });
         return jsonResult(result);
       } catch (error) {
         return errorResult(describeError(error));
@@ -126,20 +135,22 @@ export function registerTranslatarrTools(server: McpServer): void {
     "create_chat",
     {
       title: "Create a chat",
-      description: "Create an empty chat for a language pair, returning its id.",
+      description:
+        "Create an empty chat for a language pair, returning its id. Optional notes become persistent background injected into every translation in this chat.",
       inputSchema: {
         sourceLang: sourceLangSchema,
         targetLang: targetLangSchema,
         title: z.string().trim().max(80).optional().describe("Optional chat title."),
+        notes: notesSchema,
       },
     },
-    async ({ sourceLang, targetLang, title }, extra) => {
+    async ({ sourceLang, targetLang, title, notes }, extra) => {
       const userId = extra.authInfo?.clientId;
       if (!userId) {
         return errorResult("Not authenticated.");
       }
 
-      const chat = createChat({ sourceLang, targetLang, title, userId });
+      const chat = createChat({ sourceLang, targetLang, title, notes, userId });
       return chat ? jsonResult(chat) : errorResult("Could not create chat.");
     },
   );
@@ -149,7 +160,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     {
       title: "Translate and save to a chat",
       description:
-        "Translate text and append it to a chat as a new persisted turn, using the chat's recent turns as context. Returns the updated chat.",
+        "Translate text and append it to a chat as a new persisted turn, using the chat's recent turns as context and applying its persistent notes. Returns the updated chat.",
       inputSchema: {
         chatId: z.string().min(1).describe("The chat to append to."),
         text: textSchema,
@@ -177,6 +188,7 @@ export function registerTranslatarrTools(server: McpServer): void {
           userId,
           context: contextFromTurns(existing.turns),
           tone,
+          notes: existing.notes,
         });
         const chat = addTurn({ chatId, userId, result, text, sourceLang, targetLang });
         return chat ? jsonResult(chat) : errorResult("Chat not found.");

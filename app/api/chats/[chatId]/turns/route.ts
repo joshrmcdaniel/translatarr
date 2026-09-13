@@ -110,7 +110,13 @@ async function handlePOST(request: Request, context: RouteContext) {
   try {
     const result =
       precomputedResult ??
-      (await translateText({ ...turn, userId: user.id, context: contextFromTurns(existingChat.turns), tone: body.tone }));
+      (await translateText({
+        ...turn,
+        userId: user.id,
+        context: contextFromTurns(existingChat.turns),
+        tone: body.tone,
+        notes: existingChat.notes,
+      }));
     const chat = addTurn({ chatId, userId: user.id, result, turnLimit, ...turn });
 
     if (!chat) {

@@ -260,6 +260,8 @@ export interface components {
             title: string;
             sourceLang: components["schemas"]["LanguageCode"];
             targetLang: components["schemas"]["LanguageCode"];
+            /** @description Persistent background for this chat, injected into every translation's system prompt; null when unset. */
+            notes: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -444,6 +446,8 @@ export interface operations {
                     sourceLang: "auto" | "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
                     /** @enum {string} */
                     targetLang: "en" | "ar" | "yue" | "zh" | "cs" | "nl" | "fi" | "fr" | "de" | "el" | "he" | "hu" | "id" | "it" | "ja" | "km" | "ko" | "mn" | "fa" | "pl" | "pt" | "ro" | "ru" | "es" | "sv" | "tl" | "th" | "uk" | "vi";
+                    /** @description Optional persistent background to set on the new chat. */
+                    notes?: string | null;
                 };
             };
         };
@@ -537,6 +541,11 @@ export interface operations {
                     /** @constant */
                     action: "rename";
                     title: string;
+                } | {
+                    /** @constant */
+                    action: "setNotes";
+                    /** @description Persistent background for this chat (domain, register, who's talking to whom); null clears it. */
+                    notes: string | null;
                 };
             };
         };

@@ -133,4 +133,8 @@ function migrate(database: Database.Database) {
       WHERE active_turn_id IS NULL;
     `);
   }
+
+  if (!chatColumns.some((column) => column.name === "notes")) {
+    database.exec("ALTER TABLE chats ADD COLUMN notes TEXT");
+  }
 }

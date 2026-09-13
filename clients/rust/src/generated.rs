@@ -140,6 +140,8 @@ pub struct ChatDetail {
     #[serde(rename = "createdAt")]
     pub created_at: ::chrono::DateTime<::chrono::offset::Utc>,
     pub id: ::std::string::String,
+    #[doc = "Persistent background for this chat, injected into every translation's system prompt; null when unset."]
+    pub notes: ::std::option::Option<::std::string::String>,
     #[serde(rename = "sourceLang")]
     pub source_lang: LanguageCode,
     #[serde(rename = "targetLang")]
@@ -163,6 +165,7 @@ pub struct ChatDetail {
 #[doc = "  \"required\": ["]
 #[doc = "    \"createdAt\","]
 #[doc = "    \"id\","]
+#[doc = "    \"notes\","]
 #[doc = "    \"sourceLang\","]
 #[doc = "    \"targetLang\","]
 #[doc = "    \"title\","]
@@ -175,6 +178,13 @@ pub struct ChatDetail {
 #[doc = "    },"]
 #[doc = "    \"id\": {"]
 #[doc = "      \"type\": \"string\""]
+#[doc = "    },"]
+#[doc = "    \"notes\": {"]
+#[doc = "      \"description\": \"Persistent background for this chat, injected into every translation's system prompt; null when unset.\","]
+#[doc = "      \"type\": ["]
+#[doc = "        \"string\","]
+#[doc = "        \"null\""]
+#[doc = "      ]"]
 #[doc = "    },"]
 #[doc = "    \"sourceLang\": {"]
 #[doc = "      \"$ref\": \"#/definitions/LanguageCode\""]
@@ -198,6 +208,8 @@ pub struct ChatSummary {
     #[serde(rename = "createdAt")]
     pub created_at: ::chrono::DateTime<::chrono::offset::Utc>,
     pub id: ::std::string::String,
+    #[doc = "Persistent background for this chat, injected into every translation's system prompt; null when unset."]
+    pub notes: ::std::option::Option<::std::string::String>,
     #[serde(rename = "sourceLang")]
     pub source_lang: LanguageCode,
     #[serde(rename = "targetLang")]

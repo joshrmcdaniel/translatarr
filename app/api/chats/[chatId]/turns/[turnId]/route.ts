@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "../../../../../lib/auth";
-import { branchTurn, getTurn, listTurns, setActiveBranch, setTurnSelection } from "../../../../../lib/chat-store";
+import { branchTurn, getChatNotes, getTurn, listTurns, setActiveBranch, setTurnSelection } from "../../../../../lib/chat-store";
 import { parseTurnLimit, updateTurnBodySchema, type UpdateTurnBody } from "../../../../../lib/request-schemas";
 import { translationErrorResponse } from "../../../../../lib/translation-error";
 import { CONTEXT_TURN_LIMIT, contextFromTurns, translateText } from "../../../../../lib/translation-service";
@@ -71,6 +71,7 @@ async function handlePATCH(request: Request, context: RouteContext) {
       userId: user.id,
       context: contextFromTurns(priorTurns?.turns ?? []),
       tone: body.tone,
+      notes: getChatNotes(chatId, user.id),
     });
     const updatedChat = branchTurn({ chatId, turnId, userId: user.id, text, result, turnLimit });
 
