@@ -49,14 +49,19 @@ jobs:
       - name: Install datamodel-code-generator
         run: pip install datamodel-code-generator
 
-      # cargo-typify + rustfmt (Rust client codegen).
+      # cargo-typify + rustfmt (Rust client codegen). Pinned exact version:
+      # cargo-typify's output shape has changed across releases (e.g. 0.7 -> 0.8
+      # dropped embedded JSON-schema doc comments and tightened nullable-field
+      # deserialization), which reads as spurious "drift" if left unpinned.
+      # Bump deliberately, alongside clients/rust/src/generated.rs and this
+      # comment, when adopting a new cargo-typify version.
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
       - name: Install cargo-typify
         uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall -y cargo-typify
+      - run: cargo binstall -y cargo-typify@0.8.0
 
       - name: Regenerate all SDK models
         run: bun run clients:regen

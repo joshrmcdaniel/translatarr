@@ -9,8 +9,11 @@
 # builds without a running server; openapi.json and schema.json are regenerated,
 # gitignored artifacts.
 #
-# Requires: bun (to run the dump + transform), cargo-typify
-# (`cargo binstall cargo-typify` or `cargo install cargo-typify`), and rustfmt.
+# Requires: bun (to run the dump + transform), cargo-typify 0.8.0 exactly
+# (`cargo binstall cargo-typify@0.8.0` or `cargo install cargo-typify --version
+# 0.8.0`), and rustfmt. cargo-typify's generated output has changed shape
+# across releases, so a different version will look like drift against the
+# committed file / the pinned version in .github/workflows/sdk-drift.yml.
 
 set -euo pipefail
 
