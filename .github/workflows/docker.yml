@@ -4,6 +4,12 @@ on:
   push:
     branches: [master]
     tags: ["v*"]
+    # Applies to both branch and tag pushes (Actions has no way to filter
+    # them independently within one push trigger) — a release tag pushed on
+    # a commit that touches only the iOS client would also be skipped here,
+    # but that's not a real release shape in practice.
+    paths-ignore:
+      - "clients/ios-keyboard/**"
   workflow_dispatch:
 
 env:

@@ -1,0 +1,55 @@
+name: iOS keyboard client
+
+# Builds the iOS keyboard client (clients/ios-keyboard) for the Simulator SDK
+# with code signing disabled — this validates that TranslatarrKit, Translatarr,
+# and TranslatarrKeyboard all compile cleanly without needing an Apple
+# Developer account, provisioning profile, or Team ID (CI has none of these).
+# It cannot verify on-device signing, App Group entitlements, or Full Access
+# behavior — those need a real device and a local Xcode Run.
+#
+# Translatarr.xcodeproj is gitignored (regenerated from project.yml via
+# scripts/regenerate.sh) rather than committed, specifically so a locally
+# signed pbxproj — e.g. one that picked up a personal Team ID from Xcode's
+# Signing & Capabilities UI — can never land in a commit in the first place.
+# CI regenerates it fresh every run, same as any local build.
+#
+# Path-filtered so a change anywhere else in the repo doesn't spin up a macOS
+# runner (the most expensive GitHub-hosted runner type) for no reason.
+
+on:
+  pull_request:
+    paths: &inputs
+      - "clients/ios-keyboard/**"
+      - ".github/workflows/ios-keyboard.yml"
+  push:
+    branches: [master]
+    paths: *inputs
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: clients/ios-keyboard
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Regenerate Xcode project
+        run: ./scripts/regenerate.sh
+
+      - name: Build for Simulator (no signing)
+        run: |
+          xcodebuild \
+            -project Translatarr.xcodeproj \
+            -scheme Translatarr \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
