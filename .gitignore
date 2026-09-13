@@ -206,3 +206,14 @@ dist/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+
+# iOS keyboard client: generated Xcode project, user state, build products.
+# Unlike the other clients' generated SDK models, Translatarr.xcodeproj is a
+# live file Xcode writes local signing state into (e.g. a personal Team ID)
+# just from opening Signing & Capabilities — gitignored so that can't leak
+# into a commit. Regenerate with scripts/regenerate.sh before opening.
+clients/ios-keyboard/Translatarr.xcodeproj/
+clients/ios-keyboard/**/xcuserdata/
+clients/ios-keyboard/**/*.xcuserstate
+clients/ios-keyboard/DerivedData/
+clients/ios-keyboard/.build/

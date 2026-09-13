@@ -1,0 +1,85 @@
+name: Translatarr
+options:
+  bundleIdPrefix: dev.joshrmcdaniel.translatarr
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    # Fill in your Apple Developer Team ID (Xcode > Signing & Capabilities,
+    # or here) before building. Required even for a personal sideload.
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  TranslatarrKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: TranslatarrKit/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.joshrmcdaniel.translatarr.kit
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: NO
+
+  Translatarr:
+    type: application
+    platform: iOS
+    sources:
+      - path: Translatarr
+        excludes:
+          - "Info.plist"
+          - "Translatarr.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.joshrmcdaniel.translatarr
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Translatarr/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Translatarr/Translatarr.entitlements
+    dependencies:
+      - target: TranslatarrKit
+        embed: true
+        codeSign: true
+      - target: TranslatarrKeyboard
+        embed: true
+        codeSign: true
+
+  TranslatarrKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TranslatarrKeyboard
+        excludes:
+          - "Info.plist"
+          - "TranslatarrKeyboard.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.joshrmcdaniel.translatarr.keyboard
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: TranslatarrKeyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TranslatarrKeyboard/TranslatarrKeyboard.entitlements
+    dependencies:
+      - target: TranslatarrKit
+        embed: true
+        codeSign: true
+
+schemes:
+  Translatarr:
+    build:
+      targets:
+        Translatarr: all
+        TranslatarrKeyboard: all
+        TranslatarrKit: all
+    run:
+      config: Debug
+    test:
+      config: Debug

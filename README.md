@@ -159,6 +159,10 @@ with TranslatarrClient("https://your-host", token="tra_…") as tra:
 
 Each covers the full surface — translate, chats, turns, speech, and key management. See the per-client READMEs for async usage and error handling: [Python](clients/python/README.md) · [TypeScript](clients/typescript/README.md) · [Rust](clients/rust/README.md).
 
+### iOS keyboard
+
+A system-wide iOS keyboard extension that translates in place in any app (Messages, WhatsApp, …), with a companion app for settings and reading translated replies. Unlike the SDKs above, it's not published anywhere — see [clients/ios-keyboard/README.md](clients/ios-keyboard/README.md) for why and for the from-source build steps (a few minutes, works on a free Apple ID).
+
 ### MCP (use Translatarr from an AI assistant)
 
 Translatarr exposes a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP at **`/api/mcp`**, so MCP-capable assistants (Claude Desktop, …) can translate and manage chats as tools. It authenticates with the same personal API key as the REST API, so first mint one under **Settings → API keys** — the `tra_…` token is shown once, copy it then.
