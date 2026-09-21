@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:ui": "playwright test",
     "swagger:ui": "bun scripts/copy-swagger-ui.mjs",
     "openapi:dump": "bun scripts/dump-openapi.ts",
     "clients:regen:python": "clients/python/scripts/regenerate.sh",

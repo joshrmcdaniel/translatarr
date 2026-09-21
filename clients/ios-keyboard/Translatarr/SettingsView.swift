@@ -8,6 +8,10 @@ struct SettingsView: View {
     @State private var targetLanguage: String = Config.targetLanguage ?? ""
     @State private var savedAt: Date?
     @State private var keyboardHasFullAccess: Bool? = Config.keyboardHasFullAccess
+    @State private var autoCorrection = Config.keyboardAutoCorrection
+    @State private var suggestions = Config.keyboardSuggestions
+    @State private var autoCapitalization = Config.keyboardAutoCapitalization
+    @State private var doubleSpacePeriod = Config.keyboardDoubleSpacePeriod
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -46,7 +50,17 @@ struct SettingsView: View {
                     TextField("Target (es, fr, ja, …)", text: $targetLanguage)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Text("The keyboard extension has no settings UI of its own — it reads this pair.")
+                    Text("Source also sets the spelling language. Auto uses your device language.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Typing") {
+                    Toggle("Auto-Correction", isOn: $autoCorrection)
+                    Toggle("Word Suggestions", isOn: $suggestions)
+                    Toggle("Auto-Capitalization", isOn: $autoCapitalization)
+                    Toggle("Double-Space Period", isOn: $doubleSpacePeriod)
+                    Text("Spelling suggestions work on your device. Press delete immediately after a correction to undo it.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -83,6 +97,10 @@ struct SettingsView: View {
         }
         Config.sourceLanguage = sourceLanguage.isEmpty ? nil : sourceLanguage
         Config.targetLanguage = targetLanguage.isEmpty ? nil : targetLanguage
+        Config.keyboardAutoCorrection = autoCorrection
+        Config.keyboardSuggestions = suggestions
+        Config.keyboardAutoCapitalization = autoCapitalization
+        Config.keyboardDoubleSpacePeriod = doubleSpacePeriod
         savedAt = Date()
     }
 }

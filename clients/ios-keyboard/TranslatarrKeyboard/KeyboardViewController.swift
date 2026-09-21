@@ -16,15 +16,7 @@ final class KeyboardViewController: UIInputViewController {
         case symbols
     }
 
-    /// The system allocates the keyboard extension a fixed content height
-    /// that isn't knowable in advance (observed 224-241pt on one device in
-    /// one session; Apple's own guidance says "~216pt default") and doesn't
-    /// negotiate with our layout — it just clips/breaks whatever doesn't
-    /// fit. So every fixed size in this file targets a conservative total
-    /// and uses a sub-required priority, so a tighter-than-expected
-    /// allocation compresses gracefully instead of throwing "unsatisfiable
-    /// constraints" (which was destabilizing the extension process).
-    private static let keyHeight: CGFloat = 38
+    /// Internal rows tolerate UIKit's temporary size during presentation.
     private static let sizePriority = UILayoutPriority(999)
 
     private func pinHeight(_ view: UIView, to constant: CGFloat) {
@@ -36,6 +28,16 @@ final class KeyboardViewController: UIInputViewController {
     private let client = TranslatarrAPIClient()
     private var translateTask: Task<Void, Never>?
     private var isShifted = false
+    private var isCapsLocked = false
+    private var manualShift = false
+    private var lastShiftTapTime: TimeInterval = 0
+    private let typingAssistant = KeyboardTypingAssistant()
+    private var observedContext: KeyboardDocumentContext?
+    private var isEditingDocument = false
+    private var keyboardHeightConstraint: NSLayoutConstraint?
+    private var toolbarHeightConstraint: NSLayoutConstraint?
+    private var accessoryHeightConstraint: NSLayoutConstraint?
+    private var typingHeightConstraint: NSLayoutConstraint?
     private var mode: Mode = .letters
     private var letterButtons: [UIButton] = []
     private var deleteRepeatTimer: Timer?
@@ -51,20 +53,27 @@ final class KeyboardViewController: UIInputViewController {
     private var currentTranslations: [TranslationOption] = []
     private var lastInsertedText: String?
 
-    private lazy var nextKeyboardButton = makeKeyButton(title: "🌐")
+    private lazy var nextKeyboardButton = makeToolbarButton(title: "Next keyboard", symbol: "globe")
     private lazy var modeToggleButton = makeKeyButton(title: "123")
+    private lazy var emojiButton: KeyboardKeyButton = {
+        let button = KeyboardKeyButton(title: "Emoji", symbol: "face.smiling")
+        button.accessibilityIdentifier = "keyboard.emojiSwitch"
+        button.accessibilityHint = "Tap to switch keyboards. Touch and hold to choose Emoji."
+        return button
+    }()
     private lazy var moreSymbolsButton = makeKeyButton(title: "#+=")
     private lazy var backToNumbersButton = makeKeyButton(title: "123")
-    private lazy var shiftButton = makeKeyButton(title: "⇧")
-    private lazy var lettersDeleteButton = makeKeyButton(title: "⌫")
-    private lazy var numbersDeleteButton = makeKeyButton(title: "⌫")
-    private lazy var symbolsDeleteButton = makeKeyButton(title: "⌫")
-    private lazy var spaceButton = makeKeyButton(title: "space")
+    private lazy var shiftButton = KeyboardKeyButton(title: "Shift", symbol: "shift")
+    private lazy var lettersDeleteButton = KeyboardKeyButton(title: "Delete", symbol: "delete.left")
+    private lazy var numbersDeleteButton = KeyboardKeyButton(title: "Delete", symbol: "delete.left")
+    private lazy var symbolsDeleteButton = KeyboardKeyButton(title: "Delete", symbol: "delete.left")
+    private lazy var spaceButton = KeyboardKeyButton(title: "space", style: .space)
     private lazy var returnButton = makeKeyButton(title: "return")
-    private lazy var translateButton = makeKeyButton(title: "Translate", emphasized: true)
+    private lazy var translateButton = makeToolbarButton(title: "Translate", emphasized: true)
 
     private lazy var languageButton: UIButton = {
-        var config = UIButton.Configuration.plain()
+        let button = makeToolbarButton(title: currentLanguageTitle())
+        var config = button.configuration!
         config.title = currentLanguageTitle()
         config.image = UIImage(systemName: "chevron.down")
         config.imagePlacement = .trailing
@@ -75,11 +84,10 @@ final class KeyboardViewController: UIInputViewController {
         config.background.backgroundColor = .secondarySystemBackground
         config.baseForegroundColor = .label
 
-        let button = UIButton(configuration: config)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.configuration = config
         button.showsMenuAsPrimaryAction = true
         button.configurationUpdateHandler = { [weak self] button in
+            button.accessibilityLabel = "Translate to \(button.configuration?.title ?? "language")"
             self?.applyPressFeedback(to: button, emphasized: false)
         }
         return button
@@ -92,19 +100,7 @@ final class KeyboardViewController: UIInputViewController {
     /// rather than a custom pane — this is the same lightweight mechanism
     /// `languageButton` already uses, just with async content.
     private lazy var conversationsButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        config.title = "💬"
-        config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8)
-        config.background.cornerRadius = 6
-        config.background.backgroundColor = .secondarySystemBackground
-        config.baseForegroundColor = .label
-
-        let button = UIButton(configuration: config)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setContentHuggingPriority(.required, for: .horizontal)
-        button.configurationUpdateHandler = { [weak self] button in
-            self?.applyPressFeedback(to: button, emphasized: false)
-        }
+        let button = makeToolbarButton(title: "Conversations", symbol: "bubble.left.and.bubble.right")
         button.showsMenuAsPrimaryAction = true
         button.menu = buildConversationsMenu()
         return button
@@ -115,19 +111,7 @@ final class KeyboardViewController: UIInputViewController {
     /// into the strip below — the reverse direction from typing, for reading
     /// a reply rather than sending one.
     private lazy var pasteTranslateButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        config.title = "📋"
-        config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8)
-        config.background.cornerRadius = 6
-        config.background.backgroundColor = .secondarySystemBackground
-        config.baseForegroundColor = .label
-
-        let button = UIButton(configuration: config)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.setContentHuggingPriority(.required, for: .horizontal)
-        button.configurationUpdateHandler = { [weak self] button in
-            self?.applyPressFeedback(to: button, emphasized: false)
-        }
+        let button = makeToolbarButton(title: "Read a reply", symbol: "doc.on.clipboard")
         button.addTarget(self, action: #selector(handlePasteTranslateTap), for: .touchUpInside)
         return button
     }()
@@ -135,9 +119,10 @@ final class KeyboardViewController: UIInputViewController {
     private lazy var statusLabel: UILabel = {
         let label = UILabel()
         label.text = "Translatarr"
-        label.font = .preferredFont(forTextStyle: .footnote)
         label.textColor = .secondaryLabel
         label.textAlignment = .center
+        label.numberOfLines = 2
+        label.font = .systemFont(ofSize: 13)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         return label
     }()
@@ -161,6 +146,29 @@ final class KeyboardViewController: UIInputViewController {
         return row
     }()
 
+    private lazy var suggestionStrip: UIStackView = {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.distribution = .fillEqually
+        row.isHidden = true
+        return row
+    }()
+
+    private lazy var accessoryRow: UIStackView = {
+        let row = UIStackView(arrangedSubviews: [statusLabel, optionsStrip, suggestionStrip])
+        row.axis = .horizontal
+        return row
+    }()
+
+    private lazy var keyStack: UIStackView = {
+        let stack = UIStackView(arrangedSubviews: [lettersBlock, numbersBlock, symbolsBlock, bottomRowView])
+        stack.axis = .vertical
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
+
+    private let typingArea = UIView()
+
     private lazy var lettersBlock = buildLettersBlock()
     private lazy var numbersBlock = buildNumbersBlock()
     private lazy var symbolsBlock = buildSymbolsBlock()
@@ -175,16 +183,13 @@ final class KeyboardViewController: UIInputViewController {
         textView.font = .preferredFont(forTextStyle: .body)
         textView.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         textView.translatesAutoresizingMaskIntoConstraints = false
-        // A scrollable UITextView reports no intrinsic content size, so
-        // without an explicit height it claims ~zero space in the stack —
-        // it won't stretch to fill on its own the way a plain view would.
-        pinHeight(textView, to: 120)
         textView.delegate = self
         return textView
     }()
 
     private lazy var readingPaneDoneButton: UIButton = {
         let button = makeKeyButton(title: "Done", emphasized: true)
+        pinHeight(button, to: 50)
         button.addTarget(self, action: #selector(hideReadingPane), for: .touchUpInside)
         return button
     }()
@@ -194,21 +199,40 @@ final class KeyboardViewController: UIInputViewController {
         stack.axis = .vertical
         stack.spacing = 4
         stack.isHidden = true
+        stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
     }()
 
     private lazy var stack: UIStackView = {
         let stack = UIStackView()
         stack.axis = .vertical
-        stack.spacing = 4
+        stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
     }()
+
+    override func loadView() {
+        // UIKit's root view negotiates the extension's width and height with
+        // the host. Replacing it can collapse the width or retain a stale height.
+        super.loadView()
+        view.backgroundColor = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(white: 0.12, alpha: 1)
+                : UIColor(red: 0.82, green: 0.83, blue: 0.85, alpha: 1)
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         buildLayout()
         wireActions()
+        requestSupplementaryLexicon { [weak self] lexicon in
+            // UIKit delivers this reply on its lexicon XPC queue.
+            DispatchQueue.main.async {
+                self?.typingAssistant.useSupplementaryLexicon(lexicon)
+                self?.refreshTypingState()
+            }
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -221,11 +245,16 @@ final class KeyboardViewController: UIInputViewController {
         languageButton.menu = buildLanguageMenu()
         refreshConversationsButtonTitle()
         refreshLanguageButtonEnabled()
+        typingAssistant.reset()
+        observedContext = KeyboardDocumentContext(textDocumentProxy)
+        updateKeyboardMetrics()
+        refreshTypingState()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         nextKeyboardButton.isHidden = !needsInputModeSwitchKey
+        updateKeyboardMetrics()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -233,6 +262,7 @@ final class KeyboardViewController: UIInputViewController {
         stopDeleteRepeat()
         dismissDetailCallout()
         translateTask?.cancel()
+        typingAssistant.reset()
     }
 
     // MARK: - Layout
@@ -240,148 +270,181 @@ final class KeyboardViewController: UIInputViewController {
     private func buildLayout() {
         view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 4),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
+            stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 4),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -4),
+            stack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -4),
         ])
 
-        pinHeight(topRow, to: 30)
+        topRow.isLayoutMarginsRelativeArrangement = true
+        topRow.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 2, leading: 6, bottom: 2, trailing: 6)
         topRow.addArrangedSubview(languageButton)
         topRow.addArrangedSubview(conversationsButton)
-        topRow.addArrangedSubview(statusLabel)
-        topRow.addArrangedSubview(optionsStrip)
+        topRow.addArrangedSubview(nextKeyboardButton)
+        topRow.addArrangedSubview(UIView())
         topRow.addArrangedSubview(pasteTranslateButton)
-
+        topRow.addArrangedSubview(translateButton)
         stack.addArrangedSubview(topRow)
-        stack.addArrangedSubview(lettersBlock)
-        stack.addArrangedSubview(numbersBlock)
-        stack.addArrangedSubview(symbolsBlock)
-        stack.addArrangedSubview(bottomRowView)
-        stack.addArrangedSubview(readingPane)
+        stack.addArrangedSubview(accessoryRow)
+        stack.addArrangedSubview(typingArea)
+
+        for pane in [keyStack, readingPane] {
+            typingArea.addSubview(pane)
+            NSLayoutConstraint.activate([
+                pane.leadingAnchor.constraint(equalTo: typingArea.leadingAnchor),
+                pane.trailingAnchor.constraint(equalTo: typingArea.trailingAnchor),
+                pane.topAnchor.constraint(equalTo: typingArea.topAnchor),
+                pane.bottomAnchor.constraint(equalTo: typingArea.bottomAnchor),
+            ])
+        }
+        bottomRowView.heightAnchor.constraint(equalTo: keyStack.heightAnchor, multiplier: 0.25).isActive = true
+        // The extension's height request must be required for UIKit to resize
+        // its host after rotation. Internal row preferences remain flexible.
+        keyboardHeightConstraint = view.heightAnchor.constraint(equalToConstant: 340)
+        keyboardHeightConstraint?.isActive = true
+        toolbarHeightConstraint = preferredHeight(topRow, 44)
+        accessoryHeightConstraint = preferredHeight(accessoryRow, 40)
+        typingHeightConstraint = preferredHeight(typingArea, 248)
+    }
+
+    private func preferredHeight(_ target: UIView, _ height: CGFloat) -> NSLayoutConstraint {
+        let constraint = target.heightAnchor.constraint(equalToConstant: height)
+        constraint.priority = Self.sizePriority
+        constraint.isActive = true
+        return constraint
+    }
+
+    private func updateKeyboardMetrics() {
+        let landscape = view.window?.windowScene?.interfaceOrientation.isLandscape
+            ?? (traitCollection.verticalSizeClass == .compact)
+        let metrics = KeyboardLayoutMetrics(
+            width: view.bounds.width,
+            isLandscape: landscape,
+            isPad: traitCollection.userInterfaceIdiom == .pad
+        )
+        let height = metrics.contentHeight + view.safeAreaInsets.bottom
+        keyboardHeightConstraint?.constant = height
+        toolbarHeightConstraint?.constant = metrics.toolbarHeight
+        accessoryHeightConstraint?.constant = metrics.accessoryHeight
+        typingHeightConstraint?.constant = metrics.typingHeight
+        let requestedSize = CGSize(width: view.bounds.width, height: height)
+        if preferredContentSize != requestedSize { preferredContentSize = requestedSize }
+    }
+
+    private func keyBlock(_ rows: [UIView], hidden: Bool = false) -> UIStackView {
+        let block = UIStackView(arrangedSubviews: rows)
+        block.axis = .vertical
+        block.distribution = .fillEqually
+        block.isHidden = hidden
+        return block
     }
 
     private func buildLettersBlock() -> UIStackView {
-        let block = UIStackView()
-        block.axis = .vertical
-        block.spacing = 4
-        block.addArrangedSubview(letterRow("qwertyuiop"))
-        block.addArrangedSubview(letterRow("asdfghjkl"))
-        block.addArrangedSubview(lettersMiddleRow())
-        return block
+        keyBlock([letterRow("qwertyuiop"), letterRow("asdfghjkl", inset: 0.05), lettersMiddleRow()])
     }
 
     private func buildNumbersBlock() -> UIStackView {
-        let block = UIStackView()
-        block.axis = .vertical
-        block.spacing = 4
-        block.isHidden = true
-        block.addArrangedSubview(symbolRow(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]))
-        block.addArrangedSubview(symbolRow(["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""]))
-        block.addArrangedSubview(punctuationRow(toggle: moreSymbolsButton, delete: numbersDeleteButton))
-        return block
+        keyBlock([
+            symbolRow(["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]),
+            symbolRow(["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""]),
+            punctuationRow(toggle: moreSymbolsButton, delete: numbersDeleteButton),
+        ], hidden: true)
     }
 
     private func buildSymbolsBlock() -> UIStackView {
-        let block = UIStackView()
-        block.axis = .vertical
-        block.spacing = 4
-        block.isHidden = true
-        block.addArrangedSubview(symbolRow(["[", "]", "{", "}", "#", "%", "^", "*", "+", "="]))
-        block.addArrangedSubview(symbolRow(["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"]))
-        block.addArrangedSubview(punctuationRow(toggle: backToNumbersButton, delete: symbolsDeleteButton))
-        return block
+        keyBlock([
+            symbolRow(["[", "]", "{", "}", "#", "%", "^", "*", "+", "="]),
+            symbolRow(["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"]),
+            punctuationRow(toggle: backToNumbersButton, delete: symbolsDeleteButton),
+        ], hidden: true)
     }
 
-    private func letterRow(_ letters: String) -> UIStackView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 4
-        row.distribution = .fillEqually
-        for character in letters {
+    private func letterRow(_ letters: String, inset: CGFloat = 0) -> UIView {
+        let buttons = letters.map { character -> UIButton in
             let button = makeLetterButton(character)
             letterButtons.append(button)
-            row.addArrangedSubview(button)
+            return button
         }
-        return row
+        let row = UIStackView(arrangedSubviews: buttons)
+        row.distribution = .fillEqually
+        guard inset > 0 else { return row }
+        let container = UIView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(row)
+        NSLayoutConstraint.activate([
+            row.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            row.widthAnchor.constraint(equalTo: container.widthAnchor, multiplier: 1 - 2 * inset),
+            row.topAnchor.constraint(equalTo: container.topAnchor),
+            row.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
+        return container
     }
 
     private func lettersMiddleRow() -> UIStackView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 4
-        row.distribution = .fillEqually
-        row.addArrangedSubview(shiftButton)
+        let letters = UIStackView()
+        letters.distribution = .fillEqually
         for character in "zxcvbnm" {
             let button = makeLetterButton(character)
             letterButtons.append(button)
-            row.addArrangedSubview(button)
+            letters.addArrangedSubview(button)
         }
-        row.addArrangedSubview(lettersDeleteButton)
-        return row
+        return rowWithFunctions(letters, leading: shiftButton, trailing: lettersDeleteButton)
     }
 
     private func symbolRow(_ symbols: [String]) -> UIStackView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 4
+        let row = UIStackView(arrangedSubviews: symbols.map(makeSymbolButton))
         row.distribution = .fillEqually
-        for symbol in symbols {
-            row.addArrangedSubview(makeSymbolButton(symbol))
-        }
         return row
     }
 
-    /// Shared third row for the numbers/symbols pages: a page-toggle key
-    /// (`#+=` <-> `123`, matching the system keyboard's third symbols page),
-    /// common punctuation, and delete.
     private func punctuationRow(toggle: UIButton, delete: UIButton) -> UIStackView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 4
-        row.distribution = .fillEqually
-        row.addArrangedSubview(toggle)
-        for symbol in [".", ",", "?", "!", "'"] {
-            row.addArrangedSubview(makeSymbolButton(symbol))
-        }
-        row.addArrangedSubview(delete)
+        rowWithFunctions(symbolRow([".", ",", "?", "!", "'"]), leading: toggle, trailing: delete)
+    }
+
+    private func rowWithFunctions(_ content: UIView, leading: UIButton, trailing: UIButton) -> UIStackView {
+        let row = UIStackView(arrangedSubviews: [leading, content, trailing])
+        leading.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.15).isActive = true
+        trailing.widthAnchor.constraint(equalTo: leading.widthAnchor).isActive = true
         return row
     }
 
     private func bottomRow() -> UIStackView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 4
+        let row = UIStackView(arrangedSubviews: [modeToggleButton, emojiButton, spaceButton, returnButton])
         row.distribution = .fill
-        row.addArrangedSubview(modeToggleButton)
-        row.addArrangedSubview(nextKeyboardButton)
-        row.addArrangedSubview(spaceButton)
-        row.addArrangedSubview(translateButton)
-        row.addArrangedSubview(returnButton)
-
+        // Make room for the emoji key by sharing the function-key space. The
+        // space bar keeps at least half the row, including on smaller phones.
         NSLayoutConstraint.activate([
-            modeToggleButton.widthAnchor.constraint(equalTo: nextKeyboardButton.widthAnchor, multiplier: 1.4),
-            spaceButton.widthAnchor.constraint(equalTo: nextKeyboardButton.widthAnchor, multiplier: 3),
-            translateButton.widthAnchor.constraint(equalTo: nextKeyboardButton.widthAnchor, multiplier: 2.5),
-            returnButton.widthAnchor.constraint(equalTo: nextKeyboardButton.widthAnchor, multiplier: 2),
+            modeToggleButton.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.14),
+            emojiButton.widthAnchor.constraint(equalToConstant: 44),
+            returnButton.widthAnchor.constraint(equalTo: row.widthAnchor, multiplier: 0.21),
         ])
-
         return row
     }
 
     // MARK: - Buttons
 
     private func makeKeyButton(title: String, emphasized: Bool = false) -> UIButton {
+        KeyboardKeyButton(title: title, style: emphasized ? .accent : .function)
+    }
+
+    private func makeToolbarButton(title: String, symbol: String? = nil, emphasized: Bool = false) -> UIButton {
         var config = UIButton.Configuration.plain()
-        config.title = title
-        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4)
-        config.background.cornerRadius = 6
+        config.title = symbol == nil ? title : nil
+        config.image = symbol.flatMap { UIImage(systemName: $0) }
+        config.preferredSymbolConfigurationForImage = .init(pointSize: 18)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10)
+        config.background.cornerRadius = 8
         config.baseForegroundColor = emphasized ? .white : .label
         config.background.backgroundColor = emphasized ? .systemBlue : .secondarySystemBackground
-
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var attributes = incoming
+            attributes.font = .systemFont(ofSize: 15, weight: .medium)
+            return attributes
+        }
         let button = UIButton(configuration: config)
+        button.accessibilityLabel = title
         button.translatesAutoresizingMaskIntoConstraints = false
-        pinHeight(button, to: Self.keyHeight)
+        button.setContentHuggingPriority(.required, for: .horizontal)
         button.configurationUpdateHandler = { [weak self] button in
             self?.applyPressFeedback(to: button, emphasized: emphasized)
         }
@@ -423,13 +486,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func makeLetterButton(_ character: Character) -> UIButton {
-        let button = makeKeyButton(title: String(character))
+        let button = KeyboardKeyButton(title: String(character), style: .character)
         button.addAction(UIAction { [weak self] _ in self?.insertLetter(character) }, for: .touchUpInside)
         return button
     }
 
     private func makeSymbolButton(_ symbol: String) -> UIButton {
-        let button = makeKeyButton(title: symbol)
+        let button = KeyboardKeyButton(title: symbol, style: .character)
         button.addAction(UIAction { [weak self] _ in self?.insertSymbol(symbol) }, for: .touchUpInside)
         return button
     }
@@ -437,6 +500,9 @@ final class KeyboardViewController: UIInputViewController {
     private func wireActions() {
         nextKeyboardButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
         modeToggleButton.addTarget(self, action: #selector(toggleMode), for: .touchUpInside)
+        // iOS owns keyboard selection: tapping advances; holding opens its
+        // keyboard list, where the user can select Apple's Emoji keyboard.
+        emojiButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
         moreSymbolsButton.addTarget(self, action: #selector(showSymbolsPage), for: .touchUpInside)
         backToNumbersButton.addTarget(self, action: #selector(showNumbersPage), for: .touchUpInside)
         shiftButton.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
@@ -456,27 +522,46 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - Typing
 
-    private func insertLetter(_ character: Character) {
+    private func editDocument(_ action: () -> Void) {
+        isEditingDocument = true
+        action()
+        isEditingDocument = false
+        observedContext = KeyboardDocumentContext(textDocumentProxy)
+        refreshTypingState()
+    }
+
+    private func prepareToType() {
         translateTask?.cancel()
         resetOptionsStrip()
         UIDevice.current.playInputClick()
-        textDocumentProxy.insertText(isShifted ? String(character).uppercased() : String(character))
-        if isShifted {
-            isShifted = false
-            updateShiftAppearance()
-        }
+    }
+
+    private func insertLetter(_ character: Character) {
+        let letter = isShifted ? String(character).uppercased() : String(character)
+        prepareToType()
+        manualShift = false
+        editDocument { typingAssistant.insert(letter, into: textDocumentProxy) }
     }
 
     private func insertSymbol(_ symbol: String) {
-        translateTask?.cancel()
-        resetOptionsStrip()
-        UIDevice.current.playInputClick()
-        textDocumentProxy.insertText(symbol)
+        let correctWord = lastInsertedText == nil
+        prepareToType()
+        manualShift = false
+        editDocument { typingAssistant.insert(symbol, into: textDocumentProxy, correctWord: correctWord) }
     }
 
     @objc private func toggleShift() {
         UIDevice.current.playInputClick()
-        isShifted.toggle()
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastShiftTapTime < 0.35, !isCapsLocked {
+            isCapsLocked = true
+            isShifted = true
+        } else {
+            isCapsLocked = false
+            isShifted.toggle()
+        }
+        lastShiftTapTime = now
+        manualShift = true
         updateShiftAppearance()
     }
 
@@ -485,8 +570,98 @@ final class KeyboardViewController: UIInputViewController {
             guard var config = button.configuration, let title = config.title else { continue }
             config.title = isShifted ? title.uppercased() : title.lowercased()
             button.configuration = config
+            button.accessibilityLabel = config.title
         }
-        shiftButton.configuration?.background.backgroundColor = isShifted ? .systemBlue : .secondarySystemBackground
+        shiftButton.configuration?.image = UIImage(systemName: isCapsLocked ? "capslock.fill" : (isShifted ? "shift.fill" : "shift"))
+        shiftButton.isSelected = isShifted
+        shiftButton.accessibilityLabel = isCapsLocked ? "Caps lock on" : "Shift"
+    }
+
+    private func refreshTypingState() {
+        if !manualShift { isShifted = isCapsLocked || typingAssistant.shouldCapitalize(textDocumentProxy) }
+        updateShiftAppearance()
+        switch textDocumentProxy.returnKeyType ?? .default {
+        case .go: returnButton.configuration?.title = "go"
+        case .search, .google, .yahoo: returnButton.configuration?.title = "search"
+        case .send: returnButton.configuration?.title = "send"
+        case .next: returnButton.configuration?.title = "next"
+        case .done: returnButton.configuration?.title = "done"
+        case .join: returnButton.configuration?.title = "join"
+        case .route: returnButton.configuration?.title = "route"
+        case .continue: returnButton.configuration?.title = "continue"
+        case .emergencyCall: returnButton.configuration?.title = "call"
+        default: returnButton.configuration?.title = "return"
+        }
+        returnButton.accessibilityLabel = returnButton.configuration?.title
+        switch textDocumentProxy.keyboardAppearance ?? .default {
+        case .dark: overrideUserInterfaceStyle = .dark
+        case .light: overrideUserInterfaceStyle = .light
+        default: overrideUserInterfaceStyle = .unspecified
+        }
+        refreshSuggestions()
+    }
+
+    private func refreshSuggestions() {
+        suggestionStrip.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        suggestionStrip.isHidden = true
+        guard Config.keyboardSuggestions, readingPane.isHidden, currentTranslations.isEmpty,
+              statusLabel.text == "Translatarr", let suggestions = typingAssistant.suggestions(for: textDocumentProxy)
+        else {
+            if optionsStrip.isHidden { statusLabel.isHidden = false }
+            return
+        }
+        let context = KeyboardDocumentContext(textDocumentProxy)
+        for (index, suggestion) in ([suggestions.word] + suggestions.alternatives).enumerated() {
+            var config = UIButton.Configuration.plain()
+            config.title = index == 0 ? "“\(suggestion)”" : suggestion
+            config.titleLineBreakMode = .byTruncatingTail
+            config.baseForegroundColor = .label
+            config.contentInsets = NSDirectionalEdgeInsets(top: 3, leading: 6, bottom: 3, trailing: 6)
+            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+                var attributes = incoming
+                attributes.font = .systemFont(ofSize: 17)
+                return attributes
+            }
+            let button = UIButton(configuration: config)
+            button.accessibilityLabel = index == 0 ? "Keep \(suggestion)" : "Use \(suggestion)"
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            button.addAction(UIAction { [weak self] _ in
+                guard let self else { return }
+                self.prepareToType()
+                self.manualShift = false
+                self.editDocument {
+                    self.typingAssistant.accept(suggestion, word: suggestions.word, context: context, in: self.textDocumentProxy)
+                }
+            }, for: .touchUpInside)
+            suggestionStrip.addArrangedSubview(button)
+        }
+        // Keep three predictable columns even when the dictionary has no guesses.
+        while suggestionStrip.arrangedSubviews.count < 3 { suggestionStrip.addArrangedSubview(UIView()) }
+        statusLabel.isHidden = true
+        suggestionStrip.isHidden = false
+    }
+
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
+        hostContextDidChange()
+    }
+
+    override func selectionDidChange(_ textInput: UITextInput?) {
+        super.selectionDidChange(textInput)
+        hostContextDidChange()
+    }
+
+    private func hostContextDidChange() {
+        guard isViewLoaded, !isEditingDocument else { return }
+        let context = KeyboardDocumentContext(textDocumentProxy)
+        if context != observedContext {
+            translateTask?.cancel()
+            typingAssistant.reset()
+            manualShift = false
+            resetOptionsStrip()
+            observedContext = context
+        }
+        refreshTypingState()
     }
 
     @objc private func toggleMode() {
@@ -505,25 +680,29 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func setMode(_ newMode: Mode) {
+        stopDeleteRepeat()
         mode = newMode
         lettersBlock.isHidden = (mode != .letters)
         numbersBlock.isHidden = (mode != .numbers)
         symbolsBlock.isHidden = (mode != .symbols)
         modeToggleButton.configuration?.title = (mode == .letters) ? "123" : "ABC"
+        modeToggleButton.accessibilityLabel = modeToggleButton.configuration?.title
+        refreshSuggestions()
     }
 
     @objc private func insertSpace() {
-        translateTask?.cancel()
-        resetOptionsStrip()
-        UIDevice.current.playInputClick()
-        textDocumentProxy.insertText(" ")
+        let correctWord = lastInsertedText == nil
+        prepareToType()
+        manualShift = false
+        editDocument { typingAssistant.insert(" ", into: textDocumentProxy, correctWord: correctWord) }
+        if mode == .numbers || mode == .symbols { setMode(.letters) }
     }
 
     @objc private func insertReturn() {
-        translateTask?.cancel()
-        resetOptionsStrip()
-        UIDevice.current.playInputClick()
-        textDocumentProxy.insertText("\n")
+        let correctWord = lastInsertedText == nil
+        prepareToType()
+        manualShift = false
+        editDocument { typingAssistant.insert("\n", into: textDocumentProxy, correctWord: correctWord) }
     }
 
     /// Delete repeats on long-press: one immediate delete on touch down, then
@@ -557,10 +736,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func performDelete() {
-        translateTask?.cancel()
-        resetOptionsStrip()
-        UIDevice.current.playInputClick()
-        textDocumentProxy.deleteBackward()
+        prepareToType()
+        manualShift = false
+        editDocument { typingAssistant.deleteBackward(in: textDocumentProxy) }
     }
 
     // MARK: - Target language
@@ -619,7 +797,8 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Conversations
 
     private func refreshConversationsButtonTitle() {
-        conversationsButton.configuration?.title = Config.pinnedChatId != nil ? "📌" : "💬"
+        conversationsButton.configuration?.image = UIImage(systemName: Config.pinnedChatId != nil ? "pin.fill" : "bubble.left.and.bubble.right")
+        conversationsButton.accessibilityLabel = Config.pinnedChatId != nil ? "Pinned conversation" : "Conversations"
     }
 
     /// The language pair is determined by whichever conversation is pinned,
@@ -738,11 +917,9 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
 
-        lettersBlock.isHidden = true
-        numbersBlock.isHidden = true
-        symbolsBlock.isHidden = true
-        bottomRowView.isHidden = true
+        keyStack.isHidden = true
         readingPane.isHidden = false
+        typingAssistant.reset()
 
         readingPaneTextView.text = ""
         readingPaneTextView.isEditable = true
@@ -790,11 +967,9 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func showReadingPane(text: String) {
-        lettersBlock.isHidden = true
-        numbersBlock.isHidden = true
-        symbolsBlock.isHidden = true
-        bottomRowView.isHidden = true
+        keyStack.isHidden = true
         readingPane.isHidden = false
+        typingAssistant.reset()
         readingPaneTextView.isEditable = false
         readingPaneTextView.text = text
         setStatus("Translatarr")
@@ -806,9 +981,10 @@ final class KeyboardViewController: UIInputViewController {
         readingPaneTextView.resignFirstResponder()
         readingPaneTextView.isEditable = false
         readingPane.isHidden = true
-        bottomRowView.isHidden = false
+        keyStack.isHidden = false
         setMode(mode)
         setStatus("Translatarr")
+        refreshTypingState()
     }
 
     // MARK: - Translate
@@ -828,6 +1004,8 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
 
+        typingAssistant.reset()
+        let requestContext = KeyboardDocumentContext(textDocumentProxy)
         setStatus("Translating…")
         translateButton.isEnabled = false
 
@@ -837,7 +1015,7 @@ final class KeyboardViewController: UIInputViewController {
 
             do {
                 let result = try await self.client.translateInChat(
-                    text: snapshot.text,
+                    text: snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines),
                     sourceLang: Config.resolvedSourceLanguage,
                     targetLang: targetLang,
                     pinnedChatId: Config.pinnedChatId
@@ -849,7 +1027,14 @@ final class KeyboardViewController: UIInputViewController {
                     return
                 }
 
-                guard self.replace(snapshot, with: top.text) else { return }
+                guard requestContext.identifier != nil,
+                      requestContext == KeyboardDocumentContext(self.textDocumentProxy) else {
+                    self.setStatus("Text changed — tap Translate again")
+                    return
+                }
+                var replaced = false
+                self.editDocument { replaced = self.replace(snapshot, with: top.text) }
+                guard replaced else { return }
                 self.lastInsertedText = top.text
                 self.currentTranslations = result.translations
                 self.showOptionChips(for: result.translations)
@@ -887,16 +1072,8 @@ final class KeyboardViewController: UIInputViewController {
             return nil
         }
 
-        let sentenceEnders: Set<Character> = [".", "!", "?"]
-        let candidate: Substring
-        if let lastEnder = before.lastIndex(where: { sentenceEnders.contains($0) }) {
-            candidate = before[before.index(after: lastEnder)...]
-        } else {
-            candidate = before[...]
-        }
-
-        let trimmed = String(candidate).trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : InputSnapshot(text: trimmed, wasSelection: false)
+        guard let candidate = KeyboardTypingAssistant.sentenceBeforeCursor(before) else { return nil }
+        return InputSnapshot(text: candidate, wasSelection: false)
     }
 
     /// A selection is replaced by `insertText` automatically, matching how
@@ -932,6 +1109,7 @@ final class KeyboardViewController: UIInputViewController {
         dismissDetailCallout()
         optionsStrip.arrangedSubviews.forEach { $0.removeFromSuperview() }
         optionsStrip.isHidden = true
+        suggestionStrip.isHidden = true
         statusLabel.isHidden = false
         statusLabel.text = text
         statusLabel.textColor = isError ? .systemRed : .secondaryLabel
@@ -950,18 +1128,24 @@ final class KeyboardViewController: UIInputViewController {
             optionsStrip.addArrangedSubview(makeOptionChip(option, index: index))
         }
         statusLabel.isHidden = true
+        suggestionStrip.isHidden = true
         optionsStrip.isHidden = false
     }
 
     private func selectOption(at index: Int) {
         guard index < currentTranslations.count, let previousText = lastInsertedText else { return }
 
-        UIDevice.current.playInputClick()
-        for _ in previousText {
-            textDocumentProxy.deleteBackward()
+        guard textDocumentProxy.selectedText?.isEmpty != false,
+              textDocumentProxy.documentContextBeforeInput?.hasSuffix(previousText) == true else {
+            resetOptionsStrip()
+            return
         }
+        UIDevice.current.playInputClick()
         let option = currentTranslations[index]
-        textDocumentProxy.insertText(option.text)
+        editDocument {
+            for _ in previousText { textDocumentProxy.deleteBackward() }
+            textDocumentProxy.insertText(option.text)
+        }
         lastInsertedText = option.text
     }
 

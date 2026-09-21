@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MAX_CHAT_NOTES_CHARS } from "../lib/chat-types";
 import { useI18n } from "../lib/i18n/i18n-context";
+import { Modal } from "./modal";
 
 /**
  * Editor for a chat's persistent background notes (see `translation-service.ts`'s
@@ -51,14 +52,8 @@ export function ChatNotesDialog({
   }
 
   return (
-    <div className="modal-overlay" role="presentation" onClick={onClose}>
-      <div
-        className="settings-dialog chat-notes-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("translator.chatNotesTitle")}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal label={t("translator.chatNotesTitle")} onClose={onClose}>
+      <div className="settings-dialog chat-notes-dialog">
         <header className="settings-header">
           <strong>{t("translator.chatNotesTitle")}</strong>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -91,6 +86,6 @@ export function ChatNotesDialog({
           </button>
         </footer>
       </div>
-    </div>
+    </Modal>
   );
 }

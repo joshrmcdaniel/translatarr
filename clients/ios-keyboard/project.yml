@@ -72,6 +72,34 @@ targets:
         embed: true
         codeSign: true
 
+  TranslatarrKeyboardTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: TranslatarrKeyboard
+        excludes:
+          - "Info.plist"
+          - "TranslatarrKeyboard.entitlements"
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: Translatarr
+      - target: TranslatarrKit
+
+  TranslatarrExtensionUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Translatarr
+    dependencies:
+      - target: Translatarr
+
 schemes:
   Translatarr:
     build:
@@ -83,3 +111,6 @@ schemes:
       config: Debug
     test:
       config: Debug
+      targets:
+        - TranslatarrKeyboardTests
+        - TranslatarrExtensionUITests

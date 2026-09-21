@@ -1,3 +1,27 @@
+## Unreleased
+
+### Web UI
+
+- Composer controls now wrap on narrow screens, keeping Send, Mic, and Clear visible when a custom tone is selected.
+- Enter no longer sends a draft or submits a chat title while an input method is composing text, including Chinese and Japanese candidate selection.
+- Delayed chat loads, translations, and regenerations no longer replace a newer chat selection. Pending messages stay with their original view, conflicting edit and branch controls are disabled while requests run, and failed background submissions can be recovered when their chat is reopened.
+- Live previews refresh when chat notes, branches, or selected translation options change. Cached previews are displayed and reused only when their text, languages, tone, and chat context still match.
+- Translations, back-translations, and voice transcripts preserve line breaks and paragraphs.
+- Settings, Chat notes, and Voice conversation use native modal dialogs that contain keyboard focus, prevent interaction with the background, close with Escape, and restore focus to the opening control.
+- Renaming a chat now exits editing when an unchanged or blank title is submitted or loses focus. Canceling an edit no longer interferes with the next rename.
+
+### iOS keyboard
+
+- Larger keys, consistent staggered letter rows, and a wider space bar. Translation, language, conversation, and reply controls now sit in a toolbar above the typing area, with a separate strip for word suggestions and translation alternatives.
+- Fixed the keyboard collapsing toward the left edge by preserving the width assigned by iOS. Its height now updates after rotation, removing excess space above the keys in landscape.
+- Added a smiley key beside `123` using iOS's keyboard switcher. Hold it and select Emoji to use Apple's emoji keyboard; a tap switches to the next keyboard chosen by iOS. The space bar stays wide.
+- On-device spelling suggestions and conservative autocorrection with immediate Delete to undo, automatic capitalization, caps lock, and double-space periods. Typing preferences are available in the container app's Settings.
+- Translate handles completed sentences and trailing spaces, including text finished with the double-space shortcut. Suggestions and translations check that the document and cursor still match before replacing text.
+
+### Development
+
+- Added `bun run test:ui` with 13 Playwright regression tests covering IME input, chat request ordering and recovery, preview invalidation, mobile composer layout, and modal keyboard behavior. The suite uses mocked APIs without calling a translation provider.
+
 ## Translatarr v0.2.3
 
 **Slow models no longer spin forever — request timeouts with send recovery, model tuning in Settings, an optional tone selector, and a production-style request log.**

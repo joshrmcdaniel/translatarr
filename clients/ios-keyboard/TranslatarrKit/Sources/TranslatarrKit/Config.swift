@@ -9,6 +9,26 @@ public enum Config {
     private static let keyboardHasFullAccessKey = "translatarr.keyboardHasFullAccess"
     private static let pinnedChatIdKey = "translatarr.pinnedChatId"
 
+    public static var keyboardAutoCorrection: Bool {
+        get { AppGroup.defaults.object(forKey: "keyboard.autoCorrection") as? Bool ?? true }
+        set { AppGroup.defaults.set(newValue, forKey: "keyboard.autoCorrection") }
+    }
+
+    public static var keyboardSuggestions: Bool {
+        get { AppGroup.defaults.object(forKey: "keyboard.suggestions") as? Bool ?? true }
+        set { AppGroup.defaults.set(newValue, forKey: "keyboard.suggestions") }
+    }
+
+    public static var keyboardAutoCapitalization: Bool {
+        get { AppGroup.defaults.object(forKey: "keyboard.autoCapitalization") as? Bool ?? true }
+        set { AppGroup.defaults.set(newValue, forKey: "keyboard.autoCapitalization") }
+    }
+
+    public static var keyboardDoubleSpacePeriod: Bool {
+        get { AppGroup.defaults.object(forKey: "keyboard.doubleSpacePeriod") as? Bool ?? true }
+        set { AppGroup.defaults.set(newValue, forKey: "keyboard.doubleSpacePeriod") }
+    }
+
     public static var hostURL: URL? {
         get {
             guard let raw = AppGroup.defaults.string(forKey: hostURLKey) else { return nil }

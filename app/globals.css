@@ -838,6 +838,7 @@ select:focus {
   font-weight: 500;
   line-height: 1.22;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .source-equivalent {
@@ -848,6 +849,7 @@ select:focus {
   color: var(--paper-mid);
   line-height: 1.45;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* alternatives collapse to quiet single-line rows */
@@ -1045,6 +1047,7 @@ select:focus {
 
 .composer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -1098,6 +1101,7 @@ select:focus {
 
 .composer-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -1108,9 +1112,11 @@ select:focus {
 
 .tone-control {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .tone-field {
@@ -1136,6 +1142,8 @@ select:focus {
 }
 
 .tone-custom-input {
+  flex: 1 1 140px;
+  min-width: 0;
   min-height: 34px;
   max-width: 180px;
   border: 1px solid var(--ink-3);
@@ -1158,12 +1166,27 @@ select:focus {
   position: fixed;
   inset: 0;
   z-index: 50;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
   display: grid;
   place-items: center;
   padding: clamp(12px, 3vw, 32px);
   background: rgb(4 7 6 / 72%);
   backdrop-filter: blur(6px);
   animation: fade 160ms ease both;
+}
+
+.modal-overlay:not([open]) {
+  display: none;
+}
+
+.modal-overlay::backdrop {
+  background: transparent;
 }
 
 @keyframes pop {
@@ -1728,6 +1751,7 @@ select:focus {
   color: var(--paper-mid);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .voice-turn-translation {
@@ -1736,6 +1760,7 @@ select:focus {
   font-size: 1.15rem;
   font-weight: 500;
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .voice-turn-romanization {

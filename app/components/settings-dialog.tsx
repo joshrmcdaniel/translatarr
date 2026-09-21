@@ -6,6 +6,7 @@ import { localeNativeNames } from "../lib/i18n/language-names";
 import { detectBrowserLocale, locales, type Locale } from "../lib/i18n/messages";
 import type { LLMProvider, LLMReasoningMode, SettingsPayload, SpeechEngine } from "../lib/settings-types";
 import { ApiKeysManager } from "./api-keys-manager";
+import { Modal } from "./modal";
 import { UserAdmin } from "./user-admin";
 
 type RequestState = "idle" | "loading" | "error" | "success";
@@ -241,14 +242,8 @@ export function SettingsDialog({
   const settings = payload?.settings ?? null;
 
   return (
-    <div className="modal-overlay" role="presentation" onClick={onClose}>
-      <div
-        className="settings-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Settings"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal label={t("common.settings")} onClose={onClose}>
+      <div className="settings-dialog">
         <header className="settings-header">
           <strong>{t("common.settings")}</strong>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -637,7 +632,7 @@ export function SettingsDialog({
           </p>
         ) : null}
       </div>
-    </div>
+    </Modal>
   );
 }
 

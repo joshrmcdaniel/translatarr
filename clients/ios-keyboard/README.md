@@ -17,6 +17,17 @@ states. Beyond that:
 - Full QWERTY keyboard with numbers/symbols pages (`123` / `#+=`, matching
   the system keyboard's three-page layout), press feedback, click sound, and
   long-press-to-repeat delete.
+- Roomier keys with consistent widths and staggered letter rows, a wide
+  space bar, and a separate toolbar for translation, language, conversations,
+  and reading replies. The keyboard requests enough height for the typing
+  area plus its toolbar and suggestions; landscape uses shorter rows.
+- A smiley key beside `123` uses the system keyboard switcher. Hold it and
+  select **Emoji** to use Apple's emoji keyboard. A tap switches to the next
+  keyboard chosen by iOS; extensions cannot jump directly to a specific
+  keyboard. If Emoji is missing, add it in Settings → General → Keyboard →
+  Keyboards → Add New Keyboard. The space bar stays wide.
+- On-device spelling suggestions and conservative autocorrection, automatic
+  capitalization, double-tap Shift for caps lock, and double-space periods.
 - Reading a reply: paste (via the system Edit Menu, not `UIPasteboard`
   directly — see CLAUDE.md's Networking section for why) translates the
   other side of the conversation into your own language in a temporary
@@ -29,6 +40,25 @@ states. Beyond that:
 
 There's no prebuilt binary — see **Install** below for why, and what to do
 instead.
+
+## Typing features
+
+Auto-Correction, Word Suggestions, Auto-Capitalization, and Double-Space
+Period are enabled by default. Change them in the container app's
+**Settings → Typing**, then tap **Save**. The source language controls
+spelling; `auto` uses the device language. Corrections require an available
+iOS spelling dictionary and respect the host field's spelling preferences.
+Email, URL, and numeric fields do not receive automatic spelling changes.
+
+Tap a suggestion to finish a word, or the quoted original to keep your
+spelling. Press Delete immediately after an automatic correction to restore
+the original word. Apple's supplementary lexicon supplies personal words and
+text shortcuts when available. Typing assistance runs locally.
+
+This is a custom keyboard with basic spelling assistance. It does not inherit
+Apple's full predictive engine, swipe typing, or dictation. Translation
+options occupy the suggestion strip after a translation; typing brings word
+suggestions back.
 
 ## Install
 
@@ -105,3 +135,25 @@ clients/ios-keyboard/
 `TranslatarrKit` is embedded in both the app and the extension; anything
 touching the network or config lives there, never duplicated into the
 extension target.
+
+## Validation
+
+After regenerating the project, run the typing and layout tests with an
+installed simulator (replace the device name if needed):
+
+```bash
+xcodebuild -project Translatarr.xcodeproj -scheme Translatarr \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+The tests cover correction undo, stale cursor/document protection, field
+preferences, Unicode words, double-space periods, translation replacement
+spans, and key geometry at several phone widths, including host resizing
+without a forced keyboard width constraint. Light and dark keyboard
+previews are attached to the layout test results. The UI test enables the
+installed extension in the simulator's Settings and checks its width and
+key height in portrait and landscape, switching to Apple's Emoji keyboard,
+and returning to Translatarr, with screenshots attached. Use an
+iPhone simulator in English for that test. Validate Full Access and typing
+in your usual apps on a device as well.

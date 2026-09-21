@@ -15,6 +15,7 @@ import type { SpeechEffectiveView } from "../lib/settings-types";
 import { unlockAudio, type SpeechError } from "../lib/speech/speech-client";
 import { useSpeechInput, useSpeechOutput } from "../lib/speech/use-speech";
 import { translationOutputLang, type TranslationResponse } from "../lib/translation-schema";
+import { Modal } from "./modal";
 
 type Side = "source" | "target";
 
@@ -169,14 +170,8 @@ export function VoiceMode({
             : t("voice.tapToTalk");
 
   return (
-    <div className="modal-overlay" role="presentation" onClick={onClose}>
-      <div
-        className="voice-mode"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("voice.title")}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Modal label={t("voice.title")} onClose={onClose}>
+      <div className="voice-mode">
         <header className="voice-header">
           <strong>{t("voice.title")}</strong>
           <span className="badge">
@@ -288,6 +283,6 @@ export function VoiceMode({
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

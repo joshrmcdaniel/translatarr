@@ -67,6 +67,10 @@ web_modules/
 
 *.tsbuildinfo
 
+# Browser test artifacts
+playwright-report/
+test-results/
+
 # Optional npm cache directory
 
 .npm

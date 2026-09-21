@@ -34,6 +34,7 @@ const TRANSLATE_TIMEOUT_MS = 150_000;
 type RequestState = "idle" | "loading" | "error" | "success";
 
 type PendingTurn = {
+  viewVersion: number;
   text: string;
   sourceLang: string;
   targetLang: string;
@@ -50,7 +51,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChat, setActiveChat] = useState<ChatDetail | null>(null);
   const [livePreview, setLivePreview] = useState(false);
-  const [previewResult, setPreviewResult] = useState<TranslationResponse | null>(null);
+  const [preview, setPreview] = useState<{ key: string; result: TranslationResponse } | null>(null);
   const [previewStatus, setPreviewStatus] = useState<RequestState>("idle");
   const [sendStatus, setSendStatus] = useState<RequestState>("idle");
   const [pendingTurn, setPendingTurn] = useState<PendingTurn | null>(null);
@@ -70,7 +71,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   const [loadingOlderTurns, setLoadingOlderTurns] = useState(false);
   const cancelTitleEdit = useRef(false);
   const previewRequestId = useRef(0);
-  const previewFor = useRef<{ text: string; sourceLang: string; targetLang: string; tone: string } | null>(null);
+  /** Changes as soon as navigation starts, so older responses cannot replace the requested view. */
+  const chatViewVersion = useRef(0);
+  /** Keep failed submissions available when their chat is reopened. */
+  const failedSends = useRef(new Map<string, { text: string; error: string }>());
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const dictationBase = useRef("");
   /** Ids of turns added since the last render of the whole chat; only these play the entry animation. */
@@ -87,7 +91,21 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   // The tone string actually sent: free text when custom, else the preset code, else "" (none).
   const effectiveTone = tone === CUSTOM_TONE ? customTone.trim() : tone;
   const isTooLong = text.length > MAX_CHARS;
-  const canSend = Boolean(trimmedText) && !isTooLong && sendStatus !== "loading";
+  const chatBusy = sendStatus === "loading" || loadStatus === "loading";
+  const canSend = Boolean(trimmedText) && !isTooLong && !chatBusy;
+  // The newest page contains the server's context window. Loading older pages
+  // should not invalidate a preview, but notes, branches, and option choices must.
+  const previewKey = JSON.stringify([
+    trimmedText,
+    sourceLang,
+    targetLang,
+    effectiveTone,
+    activeChat?.id ?? null,
+    activeChat?.notes ?? null,
+    activeChat?.turns.slice(-TURN_PAGE_SIZE).map((turn) => [turn.id, turn.selectedOption]) ?? [],
+  ]);
+  const previewResult = livePreview && loadStatus !== "loading" && preview?.key === previewKey ? preview.result : null;
+  const visiblePendingTurn = pendingTurn?.viewVersion === chatViewVersion.current ? pendingTurn : null;
   const latestResult = previewResult ?? activeChat?.turns.at(-1)?.result ?? null;
   const languageLocked = (activeChat?.totalTurns ?? 0) > 0;
   const lastTurnId = activeChat?.turns.at(-1)?.id ?? null;
@@ -143,7 +161,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     const behavior: ScrollBehavior = autoScrolledChatId.current === chatId ? "smooth" : "auto";
     autoScrolledChatId.current = chatId;
     timeline.scrollTo({ top: timeline.scrollHeight, behavior });
-  }, [activeChat?.id, lastTurnId, previewResult, pendingTurn]);
+  }, [activeChat?.id, lastTurnId, previewResult, visiblePendingTurn]);
 
   // If the first page is too short to overflow the timeline there is no scrollbar to
   // reach older turns with, so keep loading pages until it overflows or history runs out.
@@ -184,9 +202,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }, [user.role]);
 
   useEffect(() => {
-    if (!livePreview || !trimmedText) {
-      setPreviewResult(null);
-      setPreviewStatus("idle");
+    setPreview(null);
+    setPreviewStatus("idle");
+
+    if (!livePreview || !trimmedText || loadStatus === "loading") {
       if (!trimmedText) {
         setError("");
       }
@@ -194,7 +213,6 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     }
 
     if (isTooLong) {
-      setPreviewResult(null);
       setPreviewStatus("error");
       setError(t("translator.tooLong", { max: MAX_CHARS.toLocaleString() }));
       return;
@@ -211,19 +229,18 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       try {
         const result = await requestTranslation(trimmedText, sourceLang, targetLang, controller.signal, activeChat?.id, effectiveTone);
 
-        if (previewRequestId.current !== currentRequest) {
+        if (controller.signal.aborted || previewRequestId.current !== currentRequest) {
           return;
         }
 
-        previewFor.current = { text: trimmedText, sourceLang, targetLang, tone: effectiveTone };
-        setPreviewResult(result);
+        setPreview({ key: previewKey, result });
         setPreviewStatus("success");
       } catch (translationError) {
         if (controller.signal.aborted || previewRequestId.current !== currentRequest) {
           return;
         }
 
-        setPreviewResult(null);
+        setPreview(null);
         setPreviewStatus("error");
         setError(apiErrorMessage(t, translationError, "common.translationFailed"));
       }
@@ -233,7 +250,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [trimmedText, sourceLang, targetLang, effectiveTone, livePreview, isTooLong, activeChat?.id, t]);
+  }, [previewKey, livePreview, isTooLong, loadStatus, t]);
 
   const detectedLabel = useMemo(() => {
     if (!latestResult) {
@@ -249,7 +266,16 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     freshTurnIds.current = new Set(next.turns.filter((turn) => !knownIds.has(turn.id)).map((turn) => turn.id));
   }
 
+  function beginChatLoad() {
+    const version = ++chatViewVersion.current;
+    setLoadStatus("loading");
+    setError("");
+    setPreview(null);
+    return version;
+  }
+
   async function loadOlderTurns() {
+    const version = chatViewVersion.current;
     const chat = activeChat;
     const timeline = timelineRef.current;
     const oldest = chat?.turns[0];
@@ -263,6 +289,10 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     try {
       const older = await fetchOlderTurns(chat.id, oldest.id, TURN_PAGE_SIZE);
 
+      if (chatViewVersion.current !== version) {
+        return;
+      }
+
       if (older.length) {
         olderTurnsAnchor.current = { height: timeline.scrollHeight, top: timeline.scrollTop };
         setActiveChat((current) =>
@@ -272,7 +302,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
         );
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : t("translator.chatLoadFailed"));
+      if (chatViewVersion.current === version) {
+        setError(loadError instanceof Error ? loadError.message : t("translator.chatLoadFailed"));
+      }
     } finally {
       setLoadingOlderTurns(false);
     }
@@ -285,15 +317,20 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function initializeChats() {
-    setLoadStatus("loading");
-    setError("");
+    const version = beginChatLoad();
 
     try {
       const summaries = await listChats();
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setChats(summaries);
 
       if (summaries[0]) {
         const chat = await getChat(summaries[0].id);
+        if (chatViewVersion.current !== version) {
+          return;
+        }
         freshTurnIds.current = new Set();
         setActiveChat(chat);
         setSourceLang(chat.sourceLang);
@@ -302,6 +339,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
       setLoadStatus("success");
     } catch (loadError) {
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setLoadStatus("error");
       setError(loadError instanceof Error ? loadError.message : t("translator.chatsLoadFailed"));
     }
@@ -310,22 +350,31 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   async function selectChat(chatId: string) {
     setSidebarOpen(false);
 
-    if (activeChat?.id === chatId) {
+    if (activeChat?.id === chatId && loadStatus !== "loading") {
       return;
     }
 
-    setLoadStatus("loading");
-    setError("");
-    setPreviewResult(null);
+    const version = beginChatLoad();
 
     try {
       const chat = await getChat(chatId);
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       freshTurnIds.current = new Set();
       setActiveChat(chat);
       setSourceLang(chat.sourceLang);
       setTargetLang(chat.targetLang);
       setLoadStatus("success");
+      const failed = failedSends.current.get(chatId);
+      if (failed) {
+        setText((current) => current || failed.text);
+        setError(failed.error);
+      }
     } catch (loadError) {
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setLoadStatus("error");
       setError(loadError instanceof Error ? loadError.message : t("translator.chatLoadFailed"));
     }
@@ -333,16 +382,20 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
   async function createNewChat() {
     setSidebarOpen(false);
-    setLoadStatus("loading");
-    setError("");
-    setPreviewResult(null);
+    const version = beginChatLoad();
 
     try {
       const chat = await createChat(sourceLang, targetLang);
       setChats((current) => [toSummary(chat), ...current]);
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setActiveChat(chat);
       setLoadStatus("success");
     } catch (createError) {
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setLoadStatus("error");
       setError(createError instanceof Error ? createError.message : t("translator.chatCreateFailed"));
     }
@@ -374,48 +427,61 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     const submittedText = trimmedText;
     const previousLastTurnId = lastTurnId;
-    const reusablePreview =
-      previewResult &&
-      previewFor.current?.text === submittedText &&
-      previewFor.current.sourceLang === sourceLang &&
-      previewFor.current.targetLang === targetLang &&
-      previewFor.current.tone === effectiveTone
-        ? previewResult
-        : null;
+    const reusablePreview = previewResult;
+    const version = chatViewVersion.current;
 
     setSendStatus("loading");
     setError("");
-    setPendingTurn({ text: submittedText, sourceLang, targetLang });
+    setPendingTurn({ viewVersion: version, text: submittedText, sourceLang, targetLang });
     setText("");
-    setPreviewResult(null);
+    setPreview(null);
     setPreviewStatus("idle");
 
     let chat: ChatDetail | null = activeChat;
 
     try {
       chat = activeChat ?? (await createChat(sourceLang, targetLang));
+      if (!activeChat) {
+        const summary = toSummary(chat);
+        setChats((current) => upsertSummary(current, summary));
+        if (chatViewVersion.current === version) {
+          setActiveChat(chat);
+        }
+      }
       const updatedChat = await addChatTurn(chat.id, submittedText, sourceLang, targetLang, reusablePreview, effectiveTone);
 
-      markFreshTurns(activeChat, updatedChat);
-      setActiveChat(updatedChat);
+      failedSends.current.delete(chat.id);
       setChats((current) => upsertSummary(current, toSummary(updatedChat)));
-      setSourceLang(updatedChat.sourceLang);
-      setTargetLang(updatedChat.targetLang);
+      if (chatViewVersion.current === version) {
+        markFreshTurns(activeChat, updatedChat);
+        setActiveChat(updatedChat);
+        setSourceLang(updatedChat.sourceLang);
+        setTargetLang(updatedChat.targetLang);
+      }
       setSendStatus("success");
     } catch (translationError) {
       const recovered = chat ? await recoverPersistedTurn(chat.id, submittedText, previousLastTurnId) : null;
 
       if (recovered) {
-        markFreshTurns(activeChat, recovered);
-        setActiveChat(recovered);
+        failedSends.current.delete(recovered.id);
         setChats((current) => upsertSummary(current, toSummary(recovered)));
-        setSourceLang(recovered.sourceLang);
-        setTargetLang(recovered.targetLang);
+        if (chatViewVersion.current === version) {
+          markFreshTurns(activeChat, recovered);
+          setActiveChat(recovered);
+          setSourceLang(recovered.sourceLang);
+          setTargetLang(recovered.targetLang);
+        }
         setSendStatus("success");
       } else {
-        setText((current) => current || submittedText);
         setSendStatus("error");
-        setError(apiErrorMessage(t, translationError, "common.translationFailed"));
+        const failure = { text: submittedText, error: apiErrorMessage(t, translationError, "common.translationFailed") };
+        if (chat) {
+          failedSends.current.set(chat.id, failure);
+        }
+        if (chatViewVersion.current === version) {
+          setText((current) => current || submittedText);
+          setError(failure.error);
+        }
       }
     } finally {
       setPendingTurn(null);
@@ -423,12 +489,12 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function retranslateTurn(turn: ChatTurn, text?: string) {
-    if (regeneratingTurnId) {
+    if (regeneratingTurnId || chatBusy) {
       return;
     }
 
+    const version = beginChatLoad();
     setRegeneratingTurnId(turn.id);
-    setError("");
 
     // Branching makes the edited turn the new leaf, so reflect that immediately rather than
     // waiting for the response: drop the turns the new branch leaves behind and show the edited
@@ -449,32 +515,47 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
     try {
       const chat = await requestTurnRetranslate(turn.chatId, turn.id, text);
-      markFreshTurns(restoreChat, chat);
-      setActiveChat(chat);
       setChats((current) => upsertSummary(current, toSummary(chat)));
+      if (chatViewVersion.current === version) {
+        markFreshTurns(restoreChat, chat);
+        setActiveChat(chat);
+      }
     } catch (retranslateError) {
-      setActiveChat(restoreChat);
-      setError(apiErrorMessage(t, retranslateError, "common.translationFailed"));
+      if (chatViewVersion.current === version) {
+        setActiveChat(restoreChat);
+        setError(apiErrorMessage(t, retranslateError, "common.translationFailed"));
+      }
     } finally {
       setRegeneratingTurnId(null);
+      if (chatViewVersion.current === version) {
+        setLoadStatus("success");
+      }
     }
   }
 
   async function switchTurnBranch(turn: ChatTurn, direction: number) {
     const targetId = turn.siblingIds[turn.branchIndex + direction];
 
-    if (!targetId) {
+    if (!targetId || chatBusy) {
       return;
     }
 
-    setError("");
+    const version = beginChatLoad();
 
     try {
       const chat = await requestSwitchBranch(turn.chatId, targetId);
+      setChats((current) => upsertSummary(current, toSummary(chat)));
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       freshTurnIds.current = new Set();
       setActiveChat(chat);
+      setLoadStatus("success");
     } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : t("common.translationFailed"));
+      if (chatViewVersion.current === version) {
+        setLoadStatus("error");
+        setError(switchError instanceof Error ? switchError.message : t("common.translationFailed"));
+      }
     }
   }
 
@@ -499,41 +580,53 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function clearActiveChat() {
-    if (!activeChat) {
+    if (!activeChat || chatBusy) {
       return;
     }
 
-    setLoadStatus("loading");
-    setError("");
+    const version = beginChatLoad();
 
     try {
       const chat = await clearChat(activeChat.id);
+      failedSends.current.delete(chat.id);
+      setChats((current) => upsertSummary(current, toSummary(chat)));
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       freshTurnIds.current = new Set();
       setActiveChat(chat);
-      setChats((current) => upsertSummary(current, toSummary(chat)));
       setLoadStatus("success");
     } catch (clearError) {
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setLoadStatus("error");
       setError(clearError instanceof Error ? clearError.message : t("translator.chatClearFailed"));
     }
   }
 
   async function removeActiveChat() {
-    if (!activeChat) {
+    if (!activeChat || chatBusy) {
       return;
     }
 
     const removedId = activeChat.id;
-    setLoadStatus("loading");
-    setError("");
+    const version = beginChatLoad();
 
     try {
       await deleteChat(removedId);
+      failedSends.current.delete(removedId);
       const remaining = chats.filter((chat) => chat.id !== removedId);
-      setChats(remaining);
+      setChats((current) => current.filter((chat) => chat.id !== removedId));
+      if (chatViewVersion.current !== version) {
+        return;
+      }
 
       if (remaining[0]) {
         const nextChat = await getChat(remaining[0].id);
+        if (chatViewVersion.current !== version) {
+          return;
+        }
         setActiveChat(nextChat);
         setSourceLang(nextChat.sourceLang);
         setTargetLang(nextChat.targetLang);
@@ -543,12 +636,17 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
 
       setLoadStatus("success");
     } catch (deleteError) {
+      if (chatViewVersion.current !== version) {
+        return;
+      }
       setLoadStatus("error");
       setError(deleteError instanceof Error ? deleteError.message : t("translator.chatDeleteFailed"));
     }
   }
 
   async function commitChatTitle() {
+    setEditingTitle(false);
+
     if (!activeChat) {
       return;
     }
@@ -570,8 +668,6 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
     } catch (renameError) {
       setTitleDraft(activeChat.title);
       setError(renameError instanceof Error ? renameError.message : t("translator.chatRenameFailed"));
-    } finally {
-      setEditingTitle(false);
     }
   }
 
@@ -636,12 +732,15 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
   }
 
   async function handleVoiceUtterance(utterance: string, fromLang: string, toLang: string): Promise<TranslationResponse> {
+    const version = chatViewVersion.current;
     const chat = activeChat ?? (await createChat(fromLang, toLang));
     const previousLastTurnId = activeChat?.turns.at(-1)?.id ?? null;
 
     if (!activeChat) {
       setChats((current) => [toSummary(chat), ...current]);
-      setActiveChat(chat);
+      if (chatViewVersion.current === version) {
+        setActiveChat(chat);
+      }
     }
 
     let updatedChat: ChatDetail;
@@ -658,9 +757,11 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
       updatedChat = recovered;
     }
 
-    markFreshTurns(activeChat, updatedChat);
-    setActiveChat(updatedChat);
     setChats((current) => upsertSummary(current, toSummary(updatedChat)));
+    if (chatViewVersion.current === version) {
+      markFreshTurns(activeChat, updatedChat);
+      setActiveChat(updatedChat);
+    }
 
     const lastTurn = updatedChat.turns.at(-1);
 
@@ -702,7 +803,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <strong>Translatarr</strong>
             </div>
             <div className="sidebar-header-actions">
-              <button type="button" className="send-button" onClick={createNewChat}>
+              <button type="button" className="send-button" onClick={createNewChat} disabled={loadStatus === "loading"}>
                 {t("translator.new")}
               </button>
             </div>
@@ -785,6 +886,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                         void commitChatTitle();
                       }}
                       onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                          return;
+                        }
                         if (event.key === "Enter") {
                           event.preventDefault();
                           event.currentTarget.blur();
@@ -802,6 +906,7 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                         type="button"
                         className="ghost-button rename-button"
                         onClick={() => {
+                          cancelTitleEdit.current = false;
                           setTitleDraft(activeChat.title);
                           setEditingTitle(true);
                         }}
@@ -865,14 +970,14 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                   unlockAudio();
                   setVoiceModeOpen(true);
                 }}
-                disabled={!speechConfig}
+                disabled={!speechConfig || chatBusy}
               >
                 {t("translator.voice")}
               </button>
-              <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.totalTurns}>
+              <button type="button" className="ghost-button" onClick={clearActiveChat} disabled={!activeChat?.totalTurns || chatBusy}>
                 {t("common.clear")}
               </button>
-              <button type="button" className="ghost-button danger-button" onClick={removeActiveChat} disabled={!activeChat}>
+              <button type="button" className="ghost-button danger-button" onClick={removeActiveChat} disabled={!activeChat || chatBusy}>
                 {t("common.delete")}
               </button>
             </div>
@@ -885,11 +990,11 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
               <div className="conversation-empty">{t("translator.loadingChats")}</div>
             ) : null}
 
-            {loadStatus !== "loading" && !activeChat && !previewResult && !pendingTurn ? (
+            {loadStatus !== "loading" && !activeChat && !previewResult && !visiblePendingTurn ? (
               <div className="conversation-empty">{t("translator.emptyNoChat")}</div>
             ) : null}
 
-            {activeChat?.turns.length === 0 && !previewResult && previewStatus !== "loading" && !pendingTurn ? (
+            {activeChat?.turns.length === 0 && !previewResult && previewStatus !== "loading" && !visiblePendingTurn ? (
               <div className="conversation-empty">{t("translator.emptyChat")}</div>
             ) : null}
 
@@ -904,21 +1009,22 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                 onSpeak={speechOutput.available ? speakTranslation : null}
                 onSelectOption={selectTurnOption}
                 regenerating={regeneratingTurnId === entry.id}
+                busy={chatBusy || regeneratingTurnId !== null}
                 onRetranslate={retranslateTurn}
                 onSwitchBranch={switchTurnBranch}
               />
             ))}
 
-            {pendingTurn ? (
+            {visiblePendingTurn ? (
               <section className="conversation-turn turn-enter">
                 <div className="user-message">
                   <span className="message-meta">
                     {t("translator.languagePair", {
-                      source: languageLabel(pendingTurn.sourceLang),
-                      target: languageLabel(pendingTurn.targetLang),
+                      source: languageLabel(visiblePendingTurn.sourceLang),
+                      target: languageLabel(visiblePendingTurn.targetLang),
                     })}
                   </span>
-                  <p>{pendingTurn.text}</p>
+                  <p>{visiblePendingTurn.text}</p>
                 </div>
                 <div className="assistant-message pending" role="status" aria-label={t("common.sending")}>
                   <span className="typing-dot" />
@@ -961,6 +1067,9 @@ export function Translator({ user, onLogout }: { user: User; onLogout: () => voi
                   value={text}
                   onChange={(event) => setText(event.target.value)}
                   onKeyDown={(event) => {
+                    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                      return;
+                    }
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
                       void sendMessage();
@@ -1131,6 +1240,7 @@ function ConversationTurn({
   onSpeak,
   onSelectOption,
   regenerating,
+  busy,
   onRetranslate,
   onSwitchBranch,
 }: {
@@ -1143,6 +1253,7 @@ function ConversationTurn({
   onSpeak: ((option: TranslationOption, key: string, lang: string) => void) | null;
   onSelectOption: (turn: ChatTurn, index: number) => void;
   regenerating: boolean;
+  busy: boolean;
   onRetranslate: (turn: ChatTurn, text?: string) => void;
   onSwitchBranch: (turn: ChatTurn, direction: number) => void;
 }) {
@@ -1184,7 +1295,7 @@ function ConversationTurn({
                     type="button"
                     className="icon-button"
                     onClick={() => onSwitchBranch(entry, -1)}
-                    disabled={regenerating || entry.branchIndex === 0}
+                    disabled={busy || entry.branchIndex === 0}
                     aria-label={`${entry.branchIndex + 1} / ${entry.branchCount}`}
                   >
                     ‹
@@ -1196,7 +1307,7 @@ function ConversationTurn({
                     type="button"
                     className="icon-button"
                     onClick={() => onSwitchBranch(entry, 1)}
-                    disabled={regenerating || entry.branchIndex === entry.branchCount - 1}
+                    disabled={busy || entry.branchIndex === entry.branchCount - 1}
                     aria-label={`${entry.branchIndex + 1} / ${entry.branchCount}`}
                   >
                     ›
@@ -1207,7 +1318,7 @@ function ConversationTurn({
                 type="button"
                 className="icon-button"
                 onClick={startEditing}
-                disabled={regenerating}
+                disabled={busy}
                 title={t("translator.editTurn")}
                 aria-label={t("translator.editTurn")}
               >
@@ -1229,7 +1340,7 @@ function ConversationTurn({
                 type="button"
                 className="icon-button"
                 onClick={() => onRetranslate(entry)}
-                disabled={regenerating}
+                disabled={busy}
                 title={t("translator.regenerate")}
                 aria-label={t("translator.regenerate")}
               >
@@ -1266,7 +1377,7 @@ function ConversationTurn({
               <button type="button" className="ghost-button" onClick={() => setEditing(false)}>
                 {t("common.cancel")}
               </button>
-              <button type="button" className="send-button" onClick={saveEdit} disabled={!draft.trim()}>
+              <button type="button" className="send-button" onClick={saveEdit} disabled={busy || !draft.trim()}>
                 {t("common.save")}
               </button>
             </div>

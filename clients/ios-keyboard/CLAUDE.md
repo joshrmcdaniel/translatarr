@@ -101,7 +101,15 @@ Known limitation to design around rather than fight: `documentContextBeforeInput
 
 **Latency.** LLM round trip is 1–3s, so there is no as-you-type preview. Explicit translate key, inline loading state in the options strip, ~8s timeout, cancel the in-flight request on any new keystroke.
 
-**Height.** ~216pt default. Options strip above the key grid: option 1 inserted immediately, options 2–3 as tappable chips that swap the inserted text, register tag as a small label on each chip. That is the entire UI.
+**Height.** Keep `UIInputViewController`'s default root view so UIKit can negotiate the extension's size with its host. A required root height constraint and `preferredContentSize` request room for the full key grid, toolbar, and accessory strip. `KeyboardLayoutMetrics` adapts row heights to phone width, landscape, and iPad. Keycaps are inset inside full-row touch targets; translation controls stay above the grid so they do not narrow the space bar. Internal row heights remain below required priority to tolerate transient presentation sizes. The reading pane fills the same area as the grid.
+
+**Width.** iOS owns the extension's root frame. Preserve its default view and autoresizing; only the constrained content inside opts out of autoresizing-mask translation. Turning translation off on the root can collapse the entire keyboard to its minimum content width. Layout tests must exercise host-assigned frames and host resizing without adding a test-only width constraint to the keyboard.
+
+**Typing.** `KeyboardTypingAssistant` uses `UITextChecker` and the supplementary `UILexicon` for local spelling suggestions, conservative boundary corrections, and text shortcuts. It also handles correction undo and double-space periods. The controller handles automatic capitalization and caps lock. Preferences live in `Config` and the container app's Typing section; the source language selects the spelling dictionary. Respect host field traits and revalidate document identity and cursor context before applying suggestions or asynchronous translations. The native predictive engine, swipe typing, and dictation are not supplied by these APIs.
+
+**Emoji.** The smiley key uses `handleInputModeList(from:with:)` for all touch events, just like the globe. Holding opens Apple's keyboard selector, where the user can choose Emoji; tapping advances to the keyboard chosen by iOS. Public extension APIs cannot enumerate enabled keyboards or switch directly to a named keyboard. Use Apple's Emoji keyboard, without a custom emoji panel. Keep the smiley key at least 44 points wide and the space bar at least half the bottom row. When iOS requires an extension-provided globe key, it lives in the toolbar.
+
+**Validation.** The `Translatarr` scheme includes `TranslatarrKeyboardTests`: typing behavior with a text-proxy double, plus real UIKit geometry checks and light/dark render attachments. `TranslatarrExtensionUITests` enables the installed extension through the simulator's Settings and verifies portrait and landscape key geometry; use an iPhone simulator in English. Run `xcodebuild -project Translatarr.xcodeproj -scheme Translatarr -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' CODE_SIGNING_ALLOWED=NO test` after regenerating the project. Full Access and host-app behavior still need on-device testing.
 
 ## Networking
 
