@@ -7,6 +7,13 @@
 - Clarified that slang and profanity should retain their social intensity without being softened or exaggerated. Romanization instructions now follow each translation or glossary entry's own script, independently of the back-translation.
 - Changed the built-in OpenAI-compatible model default to `gpt-6-luna`. Existing user, instance, and environment model overrides continue to take precedence.
 
+### MCP
+
+- Added explicit read/write, destructive, idempotency, and external-access annotations, concise server instructions, and searchable tool descriptions. Input descriptions state limits and defaults even when clients strip those schema keywords.
+- Results now include matching structured data and JSON text. Tool errors carry recovery instructions in both fields, with provider internals omitted.
+- **Response contract change:** `list_chats` returns a paged object instead of a bare array; `get_chat` returns paged turn previews; `add_turn` returns a save acknowledgement and the new turn ID. Existing MCP integrations should follow continuation IDs and use the new `get_turn` tool for full saved translations.
+- Added a 24,000-byte UTF-8 response budget, automatic page sizing, and lossless JSON chunks for large saved turns. Oversized unsaved translations return an explicit recovery error. Translation context reads only the latest six turns.
+
 ### Web UI
 
 - Composer controls now wrap on narrow screens, keeping Send, Mic, and Clear visible when a custom tone is selected.
@@ -27,6 +34,7 @@
 
 ### Development
 
+- Added `bun run test:mcp` with protocol tests for discovery, client projections, input validation, authentication, pagination, active branches, Unicode output budgets, and Streamable HTTP. Tests use a temporary database and stubbed provider.
 - Added `bun run test:ui` with 13 Playwright regression tests covering IME input, chat request ordering and recovery, preview invalidation, mobile composer layout, and modal keyboard behavior. The suite uses mocked APIs without calling a translation provider.
 - Added `bun run eval:translations` with 20 synthetic cases covering Korean, Japanese, Spanish, and French. The runner uses the production prompt builder, provider client, and response parser, supports saved-prompt replay, repeated samples, and dry runs, and records structural checks alongside qualitative review criteria. Live evaluations use configured provider credentials and incur normal API charges without changing settings or chats.
 

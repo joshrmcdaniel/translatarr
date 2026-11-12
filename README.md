@@ -186,7 +186,18 @@ Translatarr exposes a [Model Context Protocol](https://modelcontextprotocol.io) 
 }
 ```
 
-Available tools: `translate`, `list_chats`, `get_chat`, `create_chat`, `add_turn`, and `list_languages`. Each acts as the key's owner, scoped to that user's chats. Serve the endpoint over HTTPS (see [reverse proxy](#behind-a-reverse-proxy--pwa-install) below) for any non-localhost host.
+Available tools: `translate`, `list_chats`, `get_chat`, `get_turn`, `create_chat`, `add_turn`, and `list_languages`. Each acts as the key's owner, scoped to that user's chats. Serve the endpoint over HTTPS (see [reverse proxy](#behind-a-reverse-proxy--pwa-install) below) for any non-localhost host.
+
+Tool definitions and diagnostic messages use English; translation content follows the requested languages. Tools declare their read/write behavior, idempotency, and external-provider access. Successful results are available as both `structuredContent` and identical JSON text in `content`. Errors include `isError: true` and an `error` object with a code, message, and recovery step in both representations.
+
+**MCP response contract:** chat reads are paged and return previews to keep tool output manageable. Existing MCP integrations that expect a bare chat array or full history must use these response shapes:
+
+- `list_chats` returns `{chats, hasMore, nextBeforeChatId}`. Pass the continuation ID as `beforeChatId`. The default limit is 10, maximum 20; summaries omit notes. Restart pagination if chats change during traversal.
+- `get_chat` returns chat metadata and notes with turn previews, `hasMore`, and `nextBeforeTurnId`. Pass that ID as `beforeTurnId` for older history. The default is the latest 5 turns, maximum 20, ordered oldest first within each page. Each preview includes up to 160 Unicode characters of source and selected translation; complete results come from `get_turn`.
+- `add_turn` returns `{saved: true, chatId, turnId, totalTurns, turn}` with a preview of the saved turn. Use `get_turn` to read it; repeating `add_turn` creates another turn.
+- `get_turn` reads one turn on the active branch. Small results return `{format: "full", turn}`. Large results return `{format: "json_chunk", data, offset, nextOffset, totalChars, sha256, ...}`. Repeat with `nextOffset` until it is null, concatenate the `data` strings, then parse the complete JSON. Offsets count Unicode code points; the chunk limit is 1–2000, default 2000. Restart if `sha256` changes between pages. Passing `offset: 0` explicitly requests chunks even for a small turn.
+
+The response budget is 24,000 UTF-8 bytes including both result representations. Chat pages may contain fewer items to stay within it. An oversized unsaved `translate` result returns `result_too_large` with recovery instructions instead of silently dropping text: split the input, or explicitly save it with `add_turn` and read it with `get_turn`. REST API response shapes retain their existing behavior.
 
 Once it's connected (Translatarr shows up under the tools/🔌 menu), just ask in plain language and Claude picks the right tool:
 
@@ -211,8 +222,11 @@ bun install
 bun run dev          # dev server on http://localhost:3000
 bun run typecheck    # primary correctness gate
 bun run test:ui      # browser interaction tests
+bun run test:mcp     # MCP protocol and client-compatibility tests; no provider calls
 bun run lint
 ```
+
+The MCP suite uses a temporary database, a stubbed provider, the MCP SDK's in-memory client, and its Streamable HTTP client against the authenticated handler. It checks discovery budgets, schema normalization, mirrored result fields, authorization, pagination, active branches, and Unicode chunk reconstruction. The client projections model the issues in [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/); they do not replace testing a particular version of a desktop or coding client.
 
 Translation quality can be checked with the live evaluation runner:
 

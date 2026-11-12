@@ -175,7 +175,18 @@ Translatarr 通过 Streamable HTTP 在 **`/api/mcp`** 上提供一个 [Model Con
 }
 ```
 
-可用工具：`translate`、`list_chats`、`get_chat`、`create_chat`、`add_turn` 和 `list_languages`。每个工具都以密钥所有者的身份运行，并限定在该用户的聊天记录范围内。对于任何非 localhost 的主机，请通过 HTTPS 提供该端点（参见下文的[反向代理](#反向代理--pwa-安装)）。
+可用工具：`translate`、`list_chats`、`get_chat`、`get_turn`、`create_chat`、`add_turn` 和 `list_languages`。每个工具都以密钥所有者的身份运行，并限定在该用户的聊天记录范围内。对于任何非 localhost 的主机，请通过 HTTPS 提供该端点（参见下文的[反向代理](#反向代理--pwa-安装)）。
+
+工具定义和诊断信息使用英语，翻译内容使用指定语言。每个工具声明读写、幂等性和外部供应商访问属性。结果同时以 `structuredContent` 和 `content` 中相同的 JSON 文本提供；错误设置 `isError: true`，并在两处提供包含错误代码、说明和恢复步骤的 `error` 对象。
+
+**MCP 响应格式变更：** 读取聊天现在使用分页和预览。依赖原有聊天数组或完整历史的 MCP 集成需要适配：
+
+- `list_chats` 返回 `{chats, hasMore, nextBeforeChatId}`，将续页 ID 作为 `beforeChatId` 传入。默认 10 条，最多 20 条；摘要不包含备注。遍历期间聊天发生变化时应重新开始分页。
+- `get_chat` 返回聊天信息、备注和消息预览，以及 `hasMore`、`nextBeforeTurnId`。将续页 ID 作为 `beforeTurnId` 获取更早的消息。默认最新 5 条，最多 20 条，每页按从旧到新排列。原文及选中译文各预览最多 160 个 Unicode 字符，完整内容由 `get_turn` 获取。
+- `add_turn` 返回 `{saved: true, chatId, turnId, totalTurns, turn}`，其中 `turn` 是已保存消息的预览。使用 `get_turn` 读取完整结果；重复调用 `add_turn` 会新增消息。
+- `get_turn` 读取当前分支中的单条消息。较小的结果返回 `{format: "full", turn}`；较大的结果返回 `{format: "json_chunk", data, offset, nextOffset, totalChars, sha256, ...}`。按 `nextOffset` 继续读取，直到其为 null，再连接所有 `data` 字符串并解析 JSON。偏移量按 Unicode 码点计算，每块默认 2000 个、范围 1–2000。若 `sha256` 变化，应重新读取。指定 `offset: 0` 可强制分块。
+
+响应预算为 24,000 个 UTF-8 字节，包含两份结果表示。为满足预算，每页实际条数可能更少。未保存的 `translate` 结果过大时会返回 `result_too_large` 和恢复步骤：拆分输入，或明确使用 `add_turn` 保存后通过 `get_turn` 读取，避免静默截断。REST API 响应格式保持原有行为。
 
 连接成功后（Translatarr 会出现在工具/🔌 菜单中），只需用自然语言提问，Claude 就会自动选择合适的工具：
 
@@ -200,8 +211,11 @@ bun install
 bun run dev          # 开发服务器运行在 http://localhost:3000
 bun run typecheck    # 主要的正确性检查
 bun run test:ui      # 浏览器交互测试
+bun run test:mcp     # MCP 协议和客户端兼容性测试，不调用真实供应商
 bun run lint
 ```
+
+MCP 测试使用临时数据库、模拟供应商、MCP SDK 内存客户端及连接到鉴权处理器的 Streamable HTTP 客户端，检查工具发现、模式规范化、结果字段一致性、权限、分页、当前分支及 Unicode 分块重组。客户端投影模拟 [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/) 中讨论的问题，不能代替对具体桌面或编程客户端版本的测试。
 
 可使用真实模型运行翻译评估（会产生供应商费用）：
 

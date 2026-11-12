@@ -11,7 +11,7 @@
 
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { verifyTranslatarrToken } from "../../lib/mcp/auth";
-import { registerTranslatarrTools } from "../../lib/mcp/tools";
+import { mcpInstructions, registerTranslatarrTools } from "../../lib/mcp/tools";
 import { logged } from "../../lib/request-log";
 import { APP_VERSION } from "../../lib/version";
 
@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 const handler = createMcpHandler(
   registerTranslatarrTools,
-  { serverInfo: { name: "translatarr", version: APP_VERSION } },
+  { serverInfo: { name: "translatarr", version: APP_VERSION }, instructions: mcpInstructions },
   { basePath: "/api", maxDuration: 120 },
 );
 

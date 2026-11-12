@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:ui": "playwright test",
+    "test:mcp": "bun build tests/mcp/tools.test.ts --target=node --packages=external --outfile=data/tests/mcp.test.mjs && node data/tests/mcp.test.mjs",
     "eval:translations": "bun build scripts/eval-translations.ts --target=node --packages=external --outfile=data/eval-translations.mjs && node data/eval-translations.mjs",
     "swagger:ui": "bun scripts/copy-swagger-ui.mjs",
     "openapi:dump": "bun scripts/dump-openapi.ts",

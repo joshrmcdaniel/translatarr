@@ -101,6 +101,21 @@ export function listChats(userId: string): ChatSummary[] {
   return rows.map(mapChat);
 }
 
+/** A bounded, newest-first page; the id breaks ties between identical timestamps. */
+export function listChatPage(userId: string, limit: number, beforeChatId?: string) {
+  const before = beforeChatId ? chatRow(beforeChatId, userId) : undefined;
+  if (beforeChatId && !before) return null;
+  const rows = (before
+    ? getDb().prepare(`SELECT * FROM chats WHERE user_id = ?
+        AND (updated_at, created_at, id) < (?, ?, ?)
+        ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ?`)
+        .all(userId, before.updated_at, before.created_at, before.id, limit + 1)
+    : getDb().prepare(`SELECT * FROM chats WHERE user_id = ?
+        ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ?`)
+        .all(userId, limit + 1)) as ChatRow[];
+  return { chats: rows.slice(0, limit).map(mapChat), hasMore: rows.length > limit };
+}
+
 export function createChat(input: {
   title?: string;
   sourceLang: string;
