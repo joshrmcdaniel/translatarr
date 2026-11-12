@@ -1,5 +1,12 @@
 ## Unreleased
 
+### Translation
+
+- Revised the shared prompt to favor idiomatic phrasing and natural sentence structure while preserving meaning, appropriate politeness, and formal or technical style when needed. The guidance applies across languages and models.
+- Glossaries are now requested after the translation is composed, grouping idioms and implicit meaning into phrases instead of forcing word-for-word equivalents. Alternative translations should vary wording within the appropriate register rather than manufacture a formal/casual ladder.
+- Clarified that slang and profanity should retain their social intensity without being softened or exaggerated. Romanization instructions now follow each translation or glossary entry's own script, independently of the back-translation.
+- Changed the built-in OpenAI-compatible model default to `gpt-6-luna`. Existing user, instance, and environment model overrides continue to take precedence.
+
 ### Web UI
 
 - Composer controls now wrap on narrow screens, keeping Send, Mic, and Clear visible when a custom tone is selected.
@@ -21,6 +28,7 @@
 ### Development
 
 - Added `bun run test:ui` with 13 Playwright regression tests covering IME input, chat request ordering and recovery, preview invalidation, mobile composer layout, and modal keyboard behavior. The suite uses mocked APIs without calling a translation provider.
+- Added `bun run eval:translations` with 20 synthetic cases covering Korean, Japanese, Spanish, and French. The runner uses the production prompt builder, provider client, and response parser, supports saved-prompt replay, repeated samples, and dry runs, and records structural checks alongside qualitative review criteria. Live evaluations use configured provider credentials and incur normal API charges without changing settings or chats.
 
 ## Translatarr v0.2.3
 

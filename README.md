@@ -85,9 +85,9 @@ Everything can be configured in-app, so environment variables are optional. When
 | --- | --- | --- |
 | `LLM_API_KEY` | API key for the provider. Required (here or in Settings) before anything translates. | — |
 | `LLM_PROVIDER` | `openai-compatible` or `anthropic` | `openai-compatible` |
-| `LLM_MODEL` | Model name | `gpt-5.4-mini` (openai-compatible), `claude-haiku-4-5` (anthropic) |
+| `LLM_MODEL` | Model name | `gpt-6-luna` (openai-compatible), `claude-haiku-4-5` (anthropic) |
 | `LLM_BASE_URL` | API base URL, e.g. `https://openrouter.ai/api/v1` | provider default |
-| `LLM_TEMPERATURE` | Sampling temperature (0–2); lower is more literal | `0.2` |
+| `LLM_TEMPERATURE` | Sampling temperature (0–2); lower reduces variation | `0.2` |
 | `LLM_MAX_TOKENS` | Completion token cap per translation request | `8192` |
 | `LLM_REASONING` | `off`, `low`, `medium`, or `high` — reasoning control for OpenRouter-style gateways (hybrid models think by default; `off` skips it). Leave unset for plain OpenAI endpoints. | unset (provider default) |
 | `LLM_TIMEOUT_MS` | Fail translation requests that exceed this many milliseconds | `120000` |
@@ -209,8 +209,21 @@ Translatarr speaks plain HTTP on port 3000 and is meant to sit behind a reverse 
 ```bash
 bun install
 bun run dev          # dev server on http://localhost:3000
-bun run typecheck    # primary correctness gate (there is no test suite)
+bun run typecheck    # primary correctness gate
+bun run test:ui      # browser interaction tests
 bun run lint
 ```
+
+Translation quality can be checked with the live evaluation runner:
+
+```bash
+bun run eval:translations --model openai/gpt-6-luna --out data/evals/before.json
+# After a prompt change, repeat with the same model and tuning:
+bun run eval:translations --model openai/gpt-6-luna --out data/evals/after.json
+```
+
+Use the model ID accepted by your provider (`gpt-6-luna` for OpenAI directly). The runner uses the production prompt builder, provider client, and response parser with synthetic cases in `tests/translation/cases.json`. It reads instance credentials and tuning from SQLite without changing settings or chats; `LLM_*` environment variables take precedence for evaluation runs. It tests the built-in prompt rather than saved custom prompts. Live runs incur provider charges. Node runs the bundled script because `better-sqlite3` requires the Node runtime.
+
+Reports save exact prompts, outputs, settings without credentials, and per-case review criteria. `--dry-run` saves requests without provider calls; `--prompts-from <report>` replays saved requests to isolate model changes; `--cases ko-` selects Korean cases; `--repeat 3` samples variability. Each request gets one attempt so malformed responses remain visible. Automated checks cover response structure, language detection, romanization presence, and glossary source spans. Review fidelity, naturalness, and relationship-appropriate register separately against each case's rubric: passing structural checks does not establish translation quality. Use `--help` for all options.
 
 CI builds and pushes the Docker image to GHCR (`linux/amd64` + `linux/arm64`) on every push to `main` and on `v*` tags — see `.github/workflows/docker.yml`.

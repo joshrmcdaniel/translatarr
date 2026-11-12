@@ -84,7 +84,7 @@ bun run start        # 服务运行在 http://localhost:3000
 | --- | --- | --- |
 | `LLM_API_KEY` | 服务商的 API 密钥。必须设置（在此处或在"设置"中），否则无法进行任何翻译。 | — |
 | `LLM_PROVIDER` | `openai-compatible` 或 `anthropic` | `openai-compatible` |
-| `LLM_MODEL` | 模型名称 | `gpt-5.4-mini`（openai-compatible）、`claude-haiku-4-5`（anthropic） |
+| `LLM_MODEL` | 模型名称 | `gpt-6-luna`（openai-compatible）、`claude-haiku-4-5`（anthropic） |
 | `LLM_BASE_URL` | API 基础 URL，例如 `https://openrouter.ai/api/v1` | 服务商默认值 |
 | `SQLITE_PATH` | 数据库文件位置 | `data/translatarr.sqlite` |
 | `SPEECH_ENGINE` | 语音运行位置：`browser`（Web Speech API，免费）或 `provider`（服务器端音频 API） | `browser` |
@@ -198,8 +198,21 @@ Translatarr 在 3000 端口上提供纯 HTTP 服务，设计上应部署在负�
 ```bash
 bun install
 bun run dev          # 开发服务器运行在 http://localhost:3000
-bun run typecheck    # 主要的正确性检查（项目没有测试套件）
+bun run typecheck    # 主要的正确性检查
+bun run test:ui      # 浏览器交互测试
 bun run lint
 ```
+
+可使用真实模型运行翻译评估（会产生供应商费用）：
+
+```bash
+bun run eval:translations --model openai/gpt-6-luna --out data/evals/before.json
+# 修改提示词后，使用相同模型和参数再次运行：
+bun run eval:translations --model openai/gpt-6-luna --out data/evals/after.json
+```
+
+模型 ID 应与供应商要求一致（直接使用 OpenAI 时为 `gpt-6-luna`）。评估器使用正式的提示词构建、模型调用和响应解析代码，对 `tests/translation/cases.json` 中的合成样例进行测试。它只读 SQLite 中的实例凭据和参数，不修改设置或聊天；评估时 `LLM_*` 环境变量优先。评估的是内置提示词，而非已保存的自定义提示词。由于 `better-sqlite3` 需要 Node，脚本先打包再由 Node 运行。
+
+报告保存完整提示词、输出、不含凭据的参数及各样例的评审标准。`--dry-run` 只保存请求，`--prompts-from <报告>` 重放原请求以比较模型，`--cases ko-` 选择韩语样例，`--repeat 3` 检查多次采样。每个请求只尝试一次，避免重试掩盖格式错误。自动检查包括响应结构、语言检测、罗马字是否存在及词汇表原文片段；自然度、忠实度和语体是否符合人物关系仍需按评审标准逐条检查。格式检查通过不代表翻译质量合格。完整选项见 `--help`。
 
 CI 会在每次推送到 `main` 分支以及打 `v*` 标签时构建 Docker 镜像并推送到 GHCR（`linux/amd64` + `linux/arm64`）— 详见 `.github/workflows/docker.yml`。

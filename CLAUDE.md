@@ -16,13 +16,15 @@ bun run dev            # start dev server (http://localhost:3000)
 bun run build          # production build
 bun run start          # serve the production build
 bun run typecheck      # tsc --noEmit — primary correctness gate
+bun run test:ui        # Playwright browser interaction tests
+bun run eval:translations --help # live, provider-agnostic translation evaluations
 bun run lint           # next lint
 bun run openapi:dump   # write clients/python/openapi.json from buildOpenApiDocument() (for the Python client)
 bun run clients:regen  # regenerate all SDK models from the spec (python + ts + rust; needs all three codegen toolchains)
 bun run clients:regen:python | clients:regen:ts | clients:regen:rust  # regenerate just one SDK
 ```
 
-There is no test suite. Use `bun run typecheck` to validate changes.
+Use `bun run typecheck` to validate changes and `bun run test:ui` for browser behavior. For translation-prompt changes, run `bun run eval:translations --model <provider-model-id> --out data/evals/<run>.json` before and after with the same model/tuning. The runner uses production prompt construction, the provider client, and response parsing, reads settings with a read-only SQLite connection, and sends synthetic multilingual cases from `tests/translation/cases.json`. It tests the built-in prompt, not stored custom prompts, and does not change chats or settings. `LLM_*` env vars override instance settings for evaluations. Live runs incur provider charges; `--dry-run` only snapshots requests. `--prompts-from` replays saved requests, `--cases` filters case IDs, and `--repeat` checks variability. Mechanical checks do not grade fluency: assess the saved translations against each case's fidelity/naturalness/register rubric. Node runs the bundled evaluator for compatibility with `better-sqlite3`.
 
 ```bash
 docker build -t translatarr .                                  # multi-stage: bun installs/builds, node:22-slim runs the standalone output
@@ -49,7 +51,7 @@ LLM settings resolve per value as: **user preference** (model, system prompt —
 
 - `LLM_API_KEY` — an API key is required (env or Settings); `createLLMClient()` throws without one, so every translate request 502s until it is set.
 - `LLM_PROVIDER` — `openai-compatible` (default), `anthropic`, or `custom`. `openai-compatible` and `anthropic` are implemented; `custom` is a `StubClient` that throws on use.
-- `LLM_MODEL` — provider-dependent default: `gpt-5.4-mini` (openai-compatible) or `claude-haiku-4-5` (anthropic).
+- `LLM_MODEL` — provider-dependent default: `gpt-6-luna` (openai-compatible) or `claude-haiku-4-5` (anthropic).
 - `LLM_BASE_URL` — provider-dependent default: `https://api.openai.com/v1` or `https://api.anthropic.com`.
 - `LLM_TEMPERATURE` / `LLM_MAX_TOKENS` / `LLM_REASONING` / `LLM_TIMEOUT_MS` — model tuning, also admin-editable in Settings (instance → env → default): sampling temperature (default 0.2), completion cap (8192), reasoning control for OpenRouter-style gateways (`off`|`low`|`medium`|`high`; unset sends no `reasoning` field so plain OpenAI endpoints never see it), and the provider request timeout (120000 ms; the LLM fetch aborts past it and surfaces a `timeout` provider error → 504).
 - `SQLITE_PATH` — overrides the default DB path (`data/translatarr.sqlite`); env-only.
