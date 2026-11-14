@@ -1,7 +1,6 @@
 /**
  * MCP (Model Context Protocol) endpoint over Streamable HTTP, served at
- * `/api/mcp` (the `[transport]` segment; static API routes like `/api/translate`
- * take precedence). `mcp-handler` builds the JSON-RPC handler; `withMcpAuth`
+ * `/api/mcp`. `mcp-handler` builds the JSON-RPC handler; `withMcpAuth`
  * gates every call on the same auth as the REST API — connect with a personal
  * API key: `Authorization: Bearer tra_…`.
  *
@@ -20,7 +19,6 @@ export const runtime = "nodejs";
 const handler = createMcpHandler(
   registerTranslatarrTools,
   { serverInfo: { name: "translatarr", version: APP_VERSION }, instructions: mcpInstructions },
-  { basePath: "/api", maxDuration: 120 },
 );
 
 const authHandler = logged(withMcpAuth(handler, verifyTranslatarrToken, { required: true }));

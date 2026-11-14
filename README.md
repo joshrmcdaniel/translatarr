@@ -217,16 +217,17 @@ Translatarr speaks plain HTTP on port 3000 and is meant to sit behind a reverse 
 
 ## Development
 
+Use Node.js 22 or newer and a current Bun release. `bun.lock` is the authoritative dependency lockfile; `package-lock.json` is kept in sync for npm users.
+
 ```bash
 bun install
 bun run dev          # dev server on http://localhost:3000
 bun run typecheck    # primary correctness gate
 bun run test:ui      # browser interaction tests
 bun run test:mcp     # MCP protocol and client-compatibility tests; no provider calls
-bun run lint
 ```
 
-The MCP suite uses a temporary database, a stubbed provider, the MCP SDK's in-memory client, and its Streamable HTTP client against the authenticated handler. It checks discovery budgets, schema normalization, mirrored result fields, authorization, pagination, active branches, and Unicode chunk reconstruction. The client projections model the issues in [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/); they do not replace testing a particular version of a desktop or coding client.
+The MCP suite uses a temporary database and stubbed providers. It exercises the MCP v2 server through a v1 Streamable HTTP client and stateless protocol requests, checking discovery budgets, schema normalization, mirrored result fields, authorization, pagination, active branches, Unicode chunk reconstruction, and Anthropic structured-output parsing. The client projections model the issues in [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/); they do not replace testing a particular version of a desktop or coding client.
 
 Translation quality can be checked with the live evaluation runner:
 

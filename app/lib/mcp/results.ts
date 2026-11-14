@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import type { ChatTurn } from "../chat-types";
 
 // Includes BOTH representations and JSON escaping, leaving headroom for client wrappers.

@@ -34,6 +34,9 @@
 
 ### Development
 
+- Updated the app to Next.js 16.4, React 19.3, TypeScript 7, Zod 4.6, Anthropic SDK 1.8, better-sqlite3 13.1, and current browser-test and API-doc dependencies; synchronized the Bun and npm lockfiles. Node.js 22+ is now required, matching the Docker runtime.
+- Migrated to mcp-handler 2.3 and MCP server SDK 2.4, with Zod object schemas and request-scoped authentication. The endpoint remains `/api/mcp`, with compatibility tests for 2025 Streamable HTTP clients and the stateless protocol. The legacy `/api/sse` endpoint is no longer served.
+- Removed the unsupported `next lint` command; use `bun run typecheck`, the MCP/browser suites, and `bun run build` for validation. Browser tests now launch the app's normal development command.
 - Added `bun run test:mcp` with protocol tests for discovery, client projections, input validation, authentication, pagination, active branches, Unicode output budgets, and Streamable HTTP. Tests use a temporary database and stubbed provider.
 - Added `bun run test:ui` with 13 Playwright regression tests covering IME input, chat request ordering and recovery, preview invalidation, mobile composer layout, and modal keyboard behavior. The suite uses mocked APIs without calling a translation provider.
 - Added `bun run eval:translations` with 20 synthetic cases covering Korean, Japanese, Spanish, and French. The runner uses the production prompt builder, provider client, and response parser, supports saved-prompt replay, repeated samples, and dry runs, and records structural checks alongside qualitative review criteria. Live evaluations use configured provider credentials and incur normal API charges without changing settings or chats.

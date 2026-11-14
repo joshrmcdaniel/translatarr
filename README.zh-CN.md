@@ -206,16 +206,17 @@ Translatarr 在 3000 端口上提供纯 HTTP 服务，设计上应部署在负�
 
 ## 开发
 
+请使用 Node.js 22 或更新版本及当前稳定版 Bun。依赖版本以 `bun.lock` 为准，并为 npm 用户同步维护 `package-lock.json`。
+
 ```bash
 bun install
 bun run dev          # 开发服务器运行在 http://localhost:3000
 bun run typecheck    # 主要的正确性检查
 bun run test:ui      # 浏览器交互测试
 bun run test:mcp     # MCP 协议和客户端兼容性测试，不调用真实供应商
-bun run lint
 ```
 
-MCP 测试使用临时数据库、模拟供应商、MCP SDK 内存客户端及连接到鉴权处理器的 Streamable HTTP 客户端，检查工具发现、模式规范化、结果字段一致性、权限、分页、当前分支及 Unicode 分块重组。客户端投影模拟 [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/) 中讨论的问题，不能代替对具体桌面或编程客户端版本的测试。
+MCP 测试使用临时数据库及模拟供应商，通过 v1 Streamable HTTP 客户端和无状态协议请求测试 MCP v2 服务端，检查工具发现、模式规范化、结果字段一致性、权限、分页、当前分支、Unicode 分块重组及 Anthropic 结构化输出解析。客户端投影模拟 [Notes on MCP Design](https://kyleavery.com/posts/mcp-design/) 中讨论的问题，不能代替对具体桌面或编程客户端版本的测试。
 
 可使用真实模型运行翻译评估（会产生供应商费用）：
 

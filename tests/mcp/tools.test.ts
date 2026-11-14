@@ -5,8 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { CLIENT_CAPABILITIES_META_KEY, CLIENT_INFO_META_KEY, PROTOCOL_VERSION_META_KEY } from "@modelcontextprotocol/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { TranslationResponse } from "../../app/lib/translation-schema";
@@ -53,15 +52,16 @@ after(() => {
 });
 
 async function connect(userId: string | undefined = owner.id) {
-  const server = new McpServer({ name: "translatarr", version: "test" }, { instructions: mcpInstructions });
-  registerTranslatarrTools(server);
+  // Keep a v1 client to exercise the v2 server's legacy Streamable HTTP fallback.
+  const handler = createMcpHandler(registerTranslatarrTools,
+    { serverInfo: { name: "translatarr", version: "test" }, instructions: mcpInstructions });
+  const secured = withMcpAuth(handler, async () => userId
+    ? { token: "test", clientId: userId, scopes: [] } : undefined);
   const client = new Client({ name: "mcp-test", version: "test" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const send = clientTransport.send.bind(clientTransport);
-  clientTransport.send = (message, options) => send(message, { ...options,
-    authInfo: userId ? { token: "test", clientId: userId, scopes: [] } : undefined });
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
+  await client.connect(new StreamableHTTPClientTransport(new URL("https://translatarr.invalid/api/mcp"), {
+    requestInit: { headers: { Authorization: "Bearer test" } },
+    fetch: (input, init) => secured(new Request(input, init)),
+  }));
   return client;
 }
 
@@ -285,19 +285,8 @@ test("error recovery stays visible in content without provider secrets", async (
 });
 
 test("Streamable HTTP handshake and calls preserve instructions, auth and structured results", async (t) => {
-  // mcp-handler owns a housekeeping interval but exposes no shutdown API.
-  // Track it here so the integration test can release it without forcing exit.
-  const intervals: NodeJS.Timeout[] = [];
-  const setIntervalOriginal = globalThis.setInterval;
-  t.mock.method(globalThis, "setInterval", (...args: Parameters<typeof setInterval>) => {
-    const timer = setIntervalOriginal(...args);
-    intervals.push(timer);
-    return timer;
-  });
-  t.after(() => intervals.forEach(clearInterval));
   const handler = createMcpHandler(registerTranslatarrTools,
-    { serverInfo: { name: "translatarr", version: "test" }, instructions: mcpInstructions },
-    { basePath: "/api", disableSse: true });
+    { serverInfo: { name: "translatarr", version: "test" }, instructions: mcpInstructions });
   const secured = withMcpAuth(handler, async (_request, token) => token === "test-http-key"
     ? { token, clientId: owner.id, scopes: [] } : undefined, { required: true });
   const denied = await secured(new Request("https://translatarr.invalid/api/mcp", { method: "POST" }));
@@ -312,4 +301,55 @@ test("Streamable HTTP handshake and calls preserve instructions, auth and struct
   assert.equal(client.getInstructions(), mcpInstructions);
   assert.equal((await client.listTools()).tools.length, 7);
   assert.equal(payload(await call(client, "list_languages")).autoDetect, "auto");
+});
+
+test("stateless MCP discovery and calls carry authentication on every request", async () => {
+  const handler = createMcpHandler(registerTranslatarrTools,
+    { serverInfo: { name: "translatarr", version: "test" }, instructions: mcpInstructions });
+  const secured = withMcpAuth(handler, async (_request, token) => token === "test-modern-key"
+    ? { token, clientId: owner.id, scopes: [] } : undefined, { required: true });
+  const request = (method: string, params: Record<string, unknown> = {}, authenticated = true) => secured(
+    new Request("https://translatarr.invalid/api/mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream",
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": method,
+        ...(method === "tools/call" ? { "Mcp-Name": String(params.name) } : {}),
+        ...(authenticated ? { Authorization: "Bearer test-modern-key" } : {}) },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: { ...params, _meta: {
+        [PROTOCOL_VERSION_META_KEY]: "2026-07-28",
+        [CLIENT_INFO_META_KEY]: { name: "modern-test", version: "test" },
+        [CLIENT_CAPABILITIES_META_KEY]: {},
+      } } }),
+    }),
+  );
+  const discovery = await request("server/discover");
+  assert.equal(discovery.status, 200, await discovery.clone().text());
+  assert.equal((await discovery.json()).result.instructions, mcpInstructions);
+  const listed = await request("tools/list");
+  assert.equal((await listed.json()).result.tools.length, 7);
+  const foreign = chat(other.id);
+  const read = await request("tools/call", { name: "get_chat", arguments: { chatId: foreign.id } });
+  assert.equal(payload((await read.json()).result).error.code, "not_found");
+  const denied = await request("tools/call", { name: "list_chats", arguments: {} }, false);
+  assert.equal(denied.status, 401);
+  assert.equal(calls.length, 0);
+});
+
+test("Anthropic SDK and Zod preserve structured translation parsing", async (t) => {
+  updateSettingsOverrides({ provider: "anthropic", baseUrl: "https://provider.invalid" });
+  t.after(() => updateSettingsOverrides({ provider: "openai-compatible", baseUrl: "https://provider.invalid/v1" }));
+  let requestBody: any;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(String(options?.body));
+    return Response.json({ id: "test-message", type: "message", role: "assistant", model: "test-model",
+      content: [{ type: "text", text: JSON.stringify(providerResult) }], stop_reason: "end_turn", stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 1 } });
+  };
+  const client = await connect(); t.after(() => client.close());
+  const result = await call(client, "translate", { text: "Hello", sourceLang: "en", targetLang: "ko" });
+  assert.deepEqual(payload(result), providerResult);
+  assert.equal(requestBody.output_config.format.type, "json_schema");
+  assert.ok(requestBody.output_config.format.schema.properties.translations);
+  assert.equal(store.listChats(owner.id).length, 0);
 });

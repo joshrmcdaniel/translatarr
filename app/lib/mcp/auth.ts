@@ -5,7 +5,7 @@
  * entry point (`getSessionUser`, which resolves an `Authorization: Bearer tra_…`
  * token or the session cookie). Returning `undefined` makes the handler answer
  * 401, matching the rest of the API. The resolved user id is carried on
- * `clientId` so tool handlers can scope data to the caller via `extra.authInfo`.
+ * `clientId` so tool handlers can scope data to the caller via `ctx.http.authInfo`.
  */
 
 import { getSessionUser } from "../auth";

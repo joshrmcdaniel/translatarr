@@ -1,6 +1,5 @@
 /** MCP tools share the REST services, with bounded, client-compatible results. */
-import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, McpServer, ServerContext } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { addTurn, createChat, getChat, getTurn, listChatPage, listTurns } from "../chat-store";
 import { MAX_CHAT_NOTES_CHARS } from "../chat-types";
@@ -32,8 +31,8 @@ const notFound = () => errorResult("not_found", "Chat, turn or cursor not found 
 
 /** Apply auth and useful error results consistently, including store failures. */
 function authenticated<Args>(handler: (args: Args, userId: string) => Promise<CallToolResult>) {
-  return async (args: Args, extra: Parameters<ToolCallback>[0]): Promise<CallToolResult> => {
-    const userId = extra.authInfo?.clientId;
+  return async (args: Args, ctx: ServerContext): Promise<CallToolResult> => {
+    const userId = ctx.http?.authInfo?.clientId;
     if (!userId) return errorResult("unauthenticated", "Not authenticated.", "Connect with your Translatarr personal API key as a Bearer token.");
     try {
       return await handler(args, userId);
@@ -58,7 +57,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "Translate text",
     description: "Translate text between languages with 2-3 ranked options, glossary, romanization and back-translation. Does not save a chat or turn. Calls the external model provider and incurs normal charges. Optional chatId supplies recent conversation context and notes. For an oversized result, split the input or use add_turn and retrieve it with get_turn.",
     annotations: translationAnnotations,
-    inputSchema: { text: textSchema, sourceLang: sourceLangSchema, targetLang: targetLangSchema, tone: toneSchema, chatId: chatIdSchema.optional() },
+    inputSchema: z.object({ text: textSchema, sourceLang: sourceLangSchema, targetLang: targetLangSchema, tone: toneSchema, chatId: chatIdSchema.optional() }),
   }, authenticated(async ({ text, sourceLang, targetLang, tone, chatId }, userId) => {
     const chat = chatId ? getChat(chatId, userId, { turnLimit: CONTEXT_TURN_LIMIT }) : undefined;
     if (chatId && !chat) return notFound();
@@ -73,7 +72,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "List translation chats",
     description: "List saved translation chat and conversation summaries, newest first. Returns {chats, hasMore, nextBeforeChatId}; pass nextBeforeChatId as beforeChatId for the next page. Read-only. Use get_chat for notes and turn history. Pagination follows current chat order; restart if chats change during traversal.",
     annotations: readAnnotations,
-    inputSchema: { limit: pageLimit(10), beforeChatId: chatIdSchema.optional().describe("Optional nextBeforeChatId from the previous list_chats page; 1-128 characters. Omit for newest chats.") },
+    inputSchema: z.object({ limit: pageLimit(10), beforeChatId: chatIdSchema.optional().describe("Optional nextBeforeChatId from the previous list_chats page; 1-128 characters. Omit for newest chats.") }),
   }, authenticated(async ({ limit, beforeChatId }, userId) => {
     const page = listChatPage(userId, limit, beforeChatId);
     if (!page) return notFound();
@@ -87,7 +86,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "Read translation chat history",
     description: "Read a saved translation chat, notes and a page of turn previews, oldest first within the page. Default: latest 5 turns. Follow nextBeforeTurnId as beforeTurnId for older history. Previews show at most 160 characters of source and selected translation; use get_turn for complete options, glossary and romanization. Read-only.",
     annotations: readAnnotations,
-    inputSchema: { chatId: chatIdSchema, limit: pageLimit(5), beforeTurnId: turnIdSchema.optional().describe("Optional nextBeforeTurnId from get_chat; 1-128 characters. Omit for the latest turns.") },
+    inputSchema: z.object({ chatId: chatIdSchema, limit: pageLimit(5), beforeTurnId: turnIdSchema.optional().describe("Optional nextBeforeTurnId from get_chat; 1-128 characters. Omit for the latest turns.") }),
   }, authenticated(async ({ chatId, limit, beforeTurnId }, userId) => {
     const chat = getChat(chatId, userId, { turnLimit: beforeTurnId ? 1 : limit });
     if (!chat) return notFound();
@@ -105,11 +104,11 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "Read a complete translation turn",
     description: "Read one saved translation turn with every option, glossary and romanization. Small results return {format:'full', turn}. Large results return {format:'json_chunk', data, nextOffset, sha256}. Repeat with nextOffset until null; concatenate data strings and JSON.parse once. Restart if sha256 changes. Read-only; does not call the model.",
     annotations: readAnnotations,
-    inputSchema: {
+    inputSchema: z.object({
       chatId: chatIdSchema, turnId: turnIdSchema,
       offset: z.number().int().min(0).optional().describe("Optional nonnegative integer Unicode code-point offset from nextOffset; omit for automatic full/chunked output. Use 0 to force JSON chunks."),
       limit: z.number().int().min(1).max(2000).default(2000).describe("Integer from 1 to 2000; default 2000. Maximum Unicode code points per JSON chunk."),
-    },
+    }),
   }, authenticated(async ({ chatId, turnId, offset, limit }, userId) => {
     const turn = getTurn(chatId, userId, turnId);
     return turn ? turnResult(turn, offset, limit) : notFound();
@@ -119,10 +118,10 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "Create a translation chat",
     description: "Create and save an empty translation chat or conversation for a language pair; returns its ID and metadata. Notes persist as translation background. Creates a new chat on every call; reuse its ID with add_turn. Does not call the model provider.",
     annotations: writeAnnotations,
-    inputSchema: {
+    inputSchema: z.object({
       sourceLang: sourceLangSchema, targetLang: targetLangSchema,
       title: z.string().trim().max(80).optional().describe("Optional title, at most 80 characters after trimming. Omit or leave blank for 'New chat'."), notes: notesSchema,
-    },
+    }),
   }, authenticated(async ({ sourceLang, targetLang, title, notes }, userId) => {
     const chat = createChat({ sourceLang, targetLang, title, notes, userId });
     return chat ? jsonResult(chat) : notFound();
@@ -132,7 +131,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "Translate and save a conversation turn",
     description: "Translate text and save a new turn in a chat, using its latest 6 turns and notes. Calls the external model provider and incurs normal charges. Returns saved:true, chatId, turnId and a preview; use get_turn for the complete translation. Every call adds a turn: do not retry a successful save to fetch its result.",
     annotations: { ...writeAnnotations, openWorldHint: true },
-    inputSchema: { chatId: chatIdSchema, text: textSchema, sourceLang: sourceLangSchema, targetLang: targetLangSchema, tone: toneSchema },
+    inputSchema: z.object({ chatId: chatIdSchema, text: textSchema, sourceLang: sourceLangSchema, targetLang: targetLangSchema, tone: toneSchema }),
   }, authenticated(async ({ chatId, text, sourceLang, targetLang, tone }, userId) => {
     const existing = getChat(chatId, userId, { turnLimit: CONTEXT_TURN_LIMIT });
     if (!existing) return notFound();
@@ -147,7 +146,7 @@ export function registerTranslatarrTools(server: McpServer): void {
     title: "List translation languages",
     description: "List supported language names and codes for translation sourceLang and targetLang. The code 'auto' detects the source language only; it is never a target. Read-only; no model call.",
     annotations: readAnnotations,
-    inputSchema: {},
+    inputSchema: z.object({}),
   }, authenticated(async () => jsonResult({
     languages: languages.map(({ code, name }) => ({ code, name })), autoDetect: autoDetectLanguage.code,
   })));
